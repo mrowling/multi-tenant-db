@@ -19,6 +19,7 @@ go.work
 
 # Build artifacts
 ephemeral-db
+multitenant-db
 dist/
 build/
 

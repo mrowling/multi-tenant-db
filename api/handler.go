@@ -90,7 +90,7 @@ func (h *Handler) HealthHandler(w http.ResponseWriter, r *http.Request) {
 // Root endpoint
 func (h *Handler) RootHandler(w http.ResponseWriter, r *http.Request) {
 	response := Response{
-		Message:   "Welcome to Ephemeral DB!",
+		Message:   "Welcome to Multitenant DB!",
 		Status:    "ok",
 		Timestamp: time.Now(),
 	}
@@ -110,9 +110,9 @@ func (h *Handler) RootHandler(w http.ResponseWriter, r *http.Request) {
 // Info endpoint with API information
 func (h *Handler) InfoHandler(w http.ResponseWriter, r *http.Request) {
 	info := map[string]interface{}{
-		"service":     "ephemeral-db",
+		"service":     "multitenant-db",
 		"version":     "1.0.0",
-		"description": "A MySQL-compatible server with custom logic",
+		"description": "A MySQL-compatible multi-tenant database server with per-idx isolation",
 		"protocols": map[string]interface{}{
 			"http": map[string]interface{}{
 				"port": 8080,
@@ -183,9 +183,9 @@ func (h *Handler) ListDatabasesHandler(w http.ResponseWriter, r *http.Request) {
 	for _, idx := range databases {
 		var name string
 		if idx == "" || idx == "default" {
-			name = "ephemeral_db"
+			name = "multitenant_db"
 		} else {
-			name = "ephemeral_db_idx_" + idx
+			name = "multitenant_db_idx_" + idx
 		}
 		dbInfos = append(dbInfos, DatabaseInfo{
 			Name: name,
@@ -238,9 +238,9 @@ func (h *Handler) CreateDatabaseHandler(w http.ResponseWriter, r *http.Request) 
 
 	var name string
 	if req.Idx == "default" {
-		name = "ephemeral_db"
+		name = "multitenant_db"
 	} else {
-		name = "ephemeral_db_idx_" + req.Idx
+		name = "multitenant_db_idx_" + req.Idx
 	}
 
 	response := map[string]interface{}{

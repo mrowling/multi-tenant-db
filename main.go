@@ -4,9 +4,9 @@ import (
 	"net/http"
 	"time"
 
-	"ephemeral-db/api"
-	"ephemeral-db/logger"
-	"ephemeral-db/mysql"
+	"multitenant-db/api"
+	"multitenant-db/logger"
+	"multitenant-db/mysql"
 )
 
 // DatabaseManagerAdapter adapts the mysql Handler's DatabaseManager for the API
@@ -43,7 +43,7 @@ func (adapter *DatabaseManagerAdapter) ListDatabases() []string {
 func main() {
 	// Setup logger
 	appLogger := logger.Setup()
-	appLogger.Println("Starting Ephemeral DB server...")
+	appLogger.Println("Starting Multitenant DB server...")
 	
 	// Create MySQL protocol handler
 	mysqlHandler := mysql.NewHandler(appLogger)

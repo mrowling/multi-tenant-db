@@ -35,7 +35,7 @@ func (qh *QueryHandlers) HandleShowTables() (*mysql.Result, error) {
 	}
 	defer rows.Close()
 	
-	names := []string{"Tables_in_ephemeral_db"}
+	names := []string{"Tables_in_multitenant_db"}
 	var values [][]interface{}
 	
 	for rows.Next() {
@@ -72,9 +72,9 @@ func (qh *QueryHandlers) HandleShowDatabases() (*mysql.Result, error) {
 	for idx := range activeDatabases {
 		var dbName string
 		if idx == "" || idx == "default" {
-			dbName = "ephemeral_db"
+			dbName = "multitenant_db"
 		} else {
-			dbName = fmt.Sprintf("ephemeral_db_idx_%s", idx)
+			dbName = fmt.Sprintf("multitenant_db_idx_%s", idx)
 		}
 		values = append(values, []interface{}{dbName})
 	}

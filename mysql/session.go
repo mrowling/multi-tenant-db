@@ -28,7 +28,7 @@ func NewSessionVariables() *SessionVariables {
 	sv.sessionVars["collation_connection"] = "utf8mb4_general_ci"
 	sv.sessionVars["time_zone"] = "SYSTEM"
 	sv.sessionVars["tx_isolation"] = "REPEATABLE-READ"
-	sv.sessionVars["version_comment"] = "Ephemeral DB"
+	sv.sessionVars["version_comment"] = "Multitenant DB"
 	
 	return sv
 }

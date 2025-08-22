@@ -1,4 +1,4 @@
-module ephemeral-db
+module multitenant-db
 
 go 1.23.0
 
