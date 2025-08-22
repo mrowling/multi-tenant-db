@@ -9,6 +9,37 @@ import (
 	"ephemeral-db/mysql"
 )
 
+// DatabaseManagerAdapter adapts the mysql Handler's DatabaseManager for the API
+type DatabaseManagerAdapter struct {
+	handler *mysql.Handler
+}
+
+// GetActiveDatabases returns active databases as map[string]interface{}
+func (adapter *DatabaseManagerAdapter) GetActiveDatabases() map[string]interface{} {
+	// This method isn't used by the API, but we need it for the interface
+	result := make(map[string]interface{})
+	databases := adapter.handler.GetDatabaseManager().GetActiveDatabases()
+	for idx := range databases {
+		result[idx] = true
+	}
+	return result
+}
+
+// GetOrCreateDatabase creates a database for the given idx
+func (adapter *DatabaseManagerAdapter) GetOrCreateDatabase(idx string) (interface{}, error) {
+	return adapter.handler.GetDatabaseManager().GetOrCreateDatabase(idx)
+}
+
+// DeleteDatabase deletes a database for the given idx
+func (adapter *DatabaseManagerAdapter) DeleteDatabase(idx string) error {
+	return adapter.handler.GetDatabaseManager().DeleteDatabase(idx)
+}
+
+// ListDatabases returns a list of database indices
+func (adapter *DatabaseManagerAdapter) ListDatabases() []string {
+	return adapter.handler.GetDatabaseManager().ListDatabases()
+}
+
 func main() {
 	// Setup logger
 	appLogger := logger.Setup()
@@ -20,8 +51,11 @@ func main() {
 	// Start MySQL protocol server in a goroutine
 	go mysql.StartServer(3306, mysqlHandler)
 	
+	// Create database manager adapter for API
+	dbManagerAdapter := &DatabaseManagerAdapter{mysqlHandler}
+	
 	// Create API handler
-	apiHandler := api.NewHandler(appLogger)
+	apiHandler := api.NewHandler(appLogger, dbManagerAdapter)
 	
 	// Setup HTTP routes
 	mux := apiHandler.SetupRoutes()

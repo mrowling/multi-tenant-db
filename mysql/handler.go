@@ -30,6 +30,11 @@ func NewHandler(logger *log.Logger) *Handler {
 	return handler
 }
 
+// GetDatabaseManager returns the database manager (for API access)
+func (h *Handler) GetDatabaseManager() *DatabaseManager {
+	return h.databaseManager
+}
+
 // logWithIdx formats a log message including the "idx" session variable if set
 func (h *Handler) logWithIdx(format string, args ...interface{}) {
 	connID := h.sessionManager.GetCurrentConnection()

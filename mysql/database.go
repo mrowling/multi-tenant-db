@@ -178,3 +178,31 @@ func (dm *DatabaseManager) GetActiveDatabases() map[string]*sql.DB {
 	}
 	return result
 }
+
+// DeleteDatabase removes a database for a specific idx
+func (dm *DatabaseManager) DeleteDatabase(idx string) error {
+	dm.dbMu.Lock()
+	defer dm.dbMu.Unlock()
+	
+	// Don't allow deletion of default database
+	if idx == "" || idx == "default" {
+		return fmt.Errorf("cannot delete default database")
+	}
+	
+	// Check if database exists
+	db, exists := dm.databases[idx]
+	if !exists {
+		return fmt.Errorf("database for idx %s does not exist", idx)
+	}
+	
+	// Close the database connection
+	if err := db.Close(); err != nil {
+		dm.logger.Printf("Error closing database for idx %s: %v", idx, err)
+	}
+	
+	// Remove from map
+	delete(dm.databases, idx)
+	dm.logger.Printf("Database deleted for idx: %s", idx)
+	
+	return nil
+}
