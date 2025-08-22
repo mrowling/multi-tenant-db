@@ -67,15 +67,28 @@ func (h *Handler) HandleQuery(query string) (*mysql.Result, error) {
 	case strings.HasPrefix(queryLower, "show databases"):
 		return h.queryHandlers.HandleShowDatabases()
 	case strings.HasPrefix(queryLower, "show tables"):
-		return h.queryHandlers.HandleShowTables()
+		session := h.sessionManager.GetOrCreateSession(h.sessionManager.GetCurrentConnection())
+		db, err := h.databaseManager.GetDatabaseForSession(session)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get database: %v", err)
+		}
+		return h.queryHandlers.HandleShowTables(db)
 	case strings.HasPrefix(queryLower, "show variables"):
-		return h.queryHandlers.HandleShowVariables()
+		session := h.sessionManager.GetOrCreateSession(h.sessionManager.GetCurrentConnection())
+		return h.queryHandlers.HandleShowVariables(session)
 	case strings.HasPrefix(queryLower, "describe ") || strings.HasPrefix(queryLower, "desc "):
-		return h.queryHandlers.HandleDescribe(query)
+		session := h.sessionManager.GetOrCreateSession(h.sessionManager.GetCurrentConnection())
+		db, err := h.databaseManager.GetDatabaseForSession(session)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get database: %v", err)
+		}
+		return h.queryHandlers.HandleDescribe(db, query)
 	case strings.HasPrefix(queryLower, "set ") && (strings.Contains(queryLower, "@") || strings.Contains(queryLower, "@@")):
-		return h.queryHandlers.HandleSet(query)
+		session := h.sessionManager.GetOrCreateSession(h.sessionManager.GetCurrentConnection())
+		return h.queryHandlers.HandleSet(session, query)
 	case strings.Contains(queryLower, "@@") || (strings.Contains(queryLower, "@") && strings.HasPrefix(queryLower, "select")):
-		return h.queryHandlers.HandleSelectVariable(query)
+		session := h.sessionManager.GetOrCreateSession(h.sessionManager.GetCurrentConnection())
+		return h.queryHandlers.HandleSelectVariable(session, query)
 	default:
 		// Let SQLite handle everything else
 		return h.executeSQLiteQuery(query)
@@ -274,7 +287,7 @@ func StartServer(port int, handler *Handler) error {
 			defer conn.Close()
 			
 			// Create new MySQL connection
-			mysqlConn, err := server.NewConn(conn, "root", "", handler)
+			mysqlConn, err := server.NewConn(conn, "mysql", "password", handler)
 			if err != nil {
 				handler.logger.Printf("Failed to create MySQL connection: %v", err)
 				return

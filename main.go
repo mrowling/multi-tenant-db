@@ -18,7 +18,7 @@ func main() {
 	mysqlHandler := mysql.NewHandler(appLogger)
 	
 	// Start MySQL protocol server in a goroutine
-	go mysql.StartServer(mysqlHandler)
+	go mysql.StartServer(3306, mysqlHandler)
 	
 	// Create API handler
 	apiHandler := api.NewHandler(appLogger)
