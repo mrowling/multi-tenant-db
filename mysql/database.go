@@ -165,3 +165,16 @@ func (dm *DatabaseManager) ListDatabases() []string {
 	}
 	return indices
 }
+
+// GetActiveDatabases returns a map of all active databases (for SHOW DATABASES)
+func (dm *DatabaseManager) GetActiveDatabases() map[string]*sql.DB {
+	dm.dbMu.RLock()
+	defer dm.dbMu.RUnlock()
+	
+	// Return a copy of the map to avoid external modification
+	result := make(map[string]*sql.DB)
+	for idx, db := range dm.databases {
+		result[idx] = db
+	}
+	return result
+}

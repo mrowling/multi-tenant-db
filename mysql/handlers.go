@@ -57,9 +57,26 @@ func (qh *QueryHandlers) HandleShowTables() (*mysql.Result, error) {
 // HandleShowDatabases handles SHOW DATABASES command
 func (qh *QueryHandlers) HandleShowDatabases() (*mysql.Result, error) {
 	names := []string{"Database"}
-	values := [][]interface{}{
-		{"ephemeral_db"},
-		{"information_schema"},
+	var values [][]interface{}
+	
+	// Always include standard MySQL databases
+	values = append(values, []interface{}{"information_schema"})
+	values = append(values, []interface{}{"mysql"})
+	values = append(values, []interface{}{"performance_schema"})
+	values = append(values, []interface{}{"sys"})
+	
+	// Get all active databases from the database manager
+	activeDatabases := qh.handler.databaseManager.GetActiveDatabases()
+	
+	// Add each active database with its idx identifier
+	for idx := range activeDatabases {
+		var dbName string
+		if idx == "" || idx == "default" {
+			dbName = "ephemeral_db"
+		} else {
+			dbName = fmt.Sprintf("ephemeral_db_idx_%s", idx)
+		}
+		values = append(values, []interface{}{dbName})
 	}
 	
 	resultset, err := mysql.BuildSimpleTextResultset(names, values)
