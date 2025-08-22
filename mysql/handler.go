@@ -271,22 +271,20 @@ func (h *Handler) HandleQuery(query string) (*mysql.Result, error) {
 	// Convert query to lowercase for easier parsing
 	queryLower := strings.ToLower(strings.TrimSpace(query))
 	
-	// Handle special commands first
+	// Only intercept the absolute minimum MySQL-specific commands
+	// that SQLite genuinely cannot handle
 	switch {
-	case strings.HasPrefix(queryLower, "show tables"):
-		return h.handleShowTables()
 	case strings.HasPrefix(queryLower, "show databases"):
 		return h.handleShowDatabases()
 	case strings.HasPrefix(queryLower, "show variables"):
 		return h.handleShowVariables()
-	case strings.HasPrefix(queryLower, "describe") || strings.HasPrefix(queryLower, "desc"):
-		return h.handleDescribe(query)
-	case strings.HasPrefix(queryLower, "set "):
+	case strings.HasPrefix(queryLower, "set ") && (strings.Contains(queryLower, "@") || strings.Contains(queryLower, "@@")):
 		return h.handleSet(query)
-	case strings.Contains(queryLower, "@@") || strings.Contains(queryLower, "@"):
+	case strings.Contains(queryLower, "@@") || (strings.Contains(queryLower, "@") && strings.HasPrefix(queryLower, "select")):
 		return h.handleSelectVariable(query)
 	default:
-		// For all other queries, pass directly to SQLite
+		// Let SQLite handle everything else - including SHOW TABLES, DESCRIBE, etc.
+		// SQLite has its own ways to handle these via system tables
 		return h.executeSQLiteQuery(query)
 	}
 }
@@ -669,26 +667,15 @@ func (h *Handler) executeSQLiteQuery(query string) (*mysql.Result, error) {
 	h.dbMu.RLock()
 	defer h.dbMu.RUnlock()
 	
-	queryLower := strings.ToLower(strings.TrimSpace(query))
-	
-	// Handle SELECT queries
-	if strings.HasPrefix(queryLower, "select") {
-		rows, err := h.db.Query(query)
-		if err != nil {
-			return nil, fmt.Errorf("SQLite query error: %v", err)
-		}
+	// First try as a query (SELECT, WITH, etc.) - anything that returns rows
+	rows, err := h.db.Query(query)
+	if err == nil {
 		defer rows.Close()
 		
 		// Get column names
 		columns, err := rows.Columns()
 		if err != nil {
 			return nil, fmt.Errorf("failed to get columns: %v", err)
-		}
-		
-		// Get column types (for future use if needed)
-		_, err = rows.ColumnTypes()
-		if err != nil {
-			return nil, fmt.Errorf("failed to get column types: %v", err)
 		}
 		
 		// Prepare result data
@@ -730,51 +717,28 @@ func (h *Handler) executeSQLiteQuery(query string) (*mysql.Result, error) {
 			return nil, fmt.Errorf("failed to build resultset: %v", err)
 		}
 		
-		result := mysql.NewResult(resultset)
-		return result, nil
+		return mysql.NewResult(resultset), nil
 	}
 	
-	// Handle INSERT, UPDATE, DELETE queries
-	if strings.HasPrefix(queryLower, "insert") || 
-	   strings.HasPrefix(queryLower, "update") || 
-	   strings.HasPrefix(queryLower, "delete") {
-		
-		result, err := h.db.Exec(query)
-		if err != nil {
-			return nil, fmt.Errorf("SQLite exec error: %v", err)
-		}
-		
-		mysqlResult := mysql.NewResult(nil)
-		
-		if affected, err := result.RowsAffected(); err == nil {
-			mysqlResult.AffectedRows = uint64(affected)
-		}
-		
-		if strings.HasPrefix(queryLower, "insert") {
-			if lastID, err := result.LastInsertId(); err == nil {
-				mysqlResult.InsertId = uint64(lastID)
-			}
-		}
-		
-		return mysqlResult, nil
+	// If Query() failed, try as Exec() - for INSERT, UPDATE, DELETE, DDL, etc.
+	result, err := h.db.Exec(query)
+	if err != nil {
+		return nil, fmt.Errorf("SQLite error: %v", err)
 	}
 	
-	// Handle DDL statements (CREATE, DROP, ALTER)
-	if strings.HasPrefix(queryLower, "create") || 
-	   strings.HasPrefix(queryLower, "drop") || 
-	   strings.HasPrefix(queryLower, "alter") {
-		
-		_, err := h.db.Exec(query)
-		if err != nil {
-			return nil, fmt.Errorf("SQLite DDL error: %v", err)
-		}
-		
-		result := mysql.NewResult(nil)
-		result.AffectedRows = 0
-		return result, nil
+	mysqlResult := mysql.NewResult(nil)
+	
+	// Get affected rows
+	if affected, err := result.RowsAffected(); err == nil {
+		mysqlResult.AffectedRows = uint64(affected)
 	}
 	
-	return nil, fmt.Errorf("unsupported query type: %s", query)
+	// Get last insert ID (useful for INSERT statements)
+	if lastID, err := result.LastInsertId(); err == nil && lastID > 0 {
+		mysqlResult.InsertId = uint64(lastID)
+	}
+	
+	return mysqlResult, nil
 }
 
 // StartServer starts the MySQL protocol server
