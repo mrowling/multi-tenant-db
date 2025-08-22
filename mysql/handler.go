@@ -119,10 +119,10 @@ func (h *Handler) logWithApp(format string, args ...interface{}) {
 
 // Handler represents the MySQL protocol handler
 type Handler struct {
-	// SQLite database connection
-	db     *sql.DB
-	dbMu   sync.RWMutex
-	logger *log.Logger
+	// SQLite database connections - one per idx
+	databases map[string]*sql.DB  // key is idx value, value is DB connection
+	dbMu      sync.RWMutex
+	logger    *log.Logger
 	
 	// Session variables per connection
 	sessions map[uint32]*SessionVariables
@@ -137,20 +137,21 @@ type Handler struct {
 
 // NewHandler creates a new MySQL protocol handler
 func NewHandler(logger *log.Logger) *Handler {
-	// Create in-memory SQLite database
-	db, err := sql.Open("sqlite3", ":memory:")
-	if err != nil {
-		logger.Fatalf("Failed to create SQLite database: %v", err)
-	}
-	
 	handler := &Handler{
-		db:       db,
-		logger:   logger,
-		sessions: make(map[uint32]*SessionVariables),
+		databases: make(map[string]*sql.DB),
+		logger:    logger,
+		sessions:  make(map[uint32]*SessionVariables),
 	}
 	
-	// Create some sample data
-	handler.initSampleData()
+	// Create default database (for when no idx is set)
+	defaultDB, err := sql.Open("sqlite3", ":memory:")
+	if err != nil {
+		logger.Fatalf("Failed to create default SQLite database: %v", err)
+	}
+	handler.databases["default"] = defaultDB
+	
+	// Initialize sample data in default database
+	handler.initSampleData("default")
 	return handler
 }
 
@@ -175,7 +176,51 @@ func (h *Handler) RemoveSession(connID uint32) {
 	delete(h.sessions, connID)
 }
 
-// GetNextConnectionID generates a unique connection ID
+// GetOrCreateDatabase gets or creates a database for the specified idx
+func (h *Handler) GetOrCreateDatabase(idx string) (*sql.DB, error) {
+	h.dbMu.Lock()
+	defer h.dbMu.Unlock()
+	
+	// If idx is empty, use default
+	if idx == "" {
+		idx = "default"
+	}
+	
+	// Check if database already exists
+	if db, exists := h.databases[idx]; exists {
+		return db, nil
+	}
+	
+	// Create new in-memory database for this idx
+	db, err := sql.Open("sqlite3", ":memory:")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create database for idx %s: %v", idx, err)
+	}
+	
+	h.databases[idx] = db
+	h.logger.Printf("Created new database for idx: %s", idx)
+	
+	// Initialize with sample data
+	h.initSampleData(idx)
+	
+	return db, nil
+}
+
+// GetCurrentDatabase gets the database for the current connection's idx
+func (h *Handler) GetCurrentDatabase() (*sql.DB, error) {
+	connID := h.GetCurrentConnection()
+	session := h.GetOrCreateSession(connID)
+	
+	// Get idx from session (try user variable first, then session variable)
+	var idx string
+	if idxVar, exists := session.GetUser("idx"); exists && idxVar != nil {
+		idx = fmt.Sprintf("%v", idxVar)
+	} else if idxVar, exists := session.Get("idx"); exists && idxVar != nil {
+		idx = fmt.Sprintf("%v", idxVar)
+	}
+	
+	return h.GetOrCreateDatabase(idx)
+}
 func (h *Handler) GetNextConnectionID() uint32 {
 	h.connCounterMu.Lock()
 	defer h.connCounterMu.Unlock()
@@ -198,12 +243,15 @@ func (h *Handler) GetCurrentConnection() uint32 {
 }
 
 // Initialize with some sample data
-func (h *Handler) initSampleData() {
-	h.dbMu.Lock()
-	defer h.dbMu.Unlock()
+func (h *Handler) initSampleData(idx string) {
+	db, exists := h.databases[idx]
+	if !exists {
+		h.logger.Printf("Database for idx %s not found, cannot initialize sample data", idx)
+		return
+	}
 	
 	// Create users table
-	_, err := h.db.Exec(`
+	_, err := db.Exec(`
 		CREATE TABLE users (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			name TEXT NOT NULL,
@@ -212,12 +260,12 @@ func (h *Handler) initSampleData() {
 		)
 	`)
 	if err != nil {
-		h.logger.Printf("Failed to create users table: %v", err)
+		h.logger.Printf("Failed to create users table for idx %s: %v", idx, err)
 		return
 	}
 	
 	// Create products table
-	_, err = h.db.Exec(`
+	_, err = db.Exec(`
 		CREATE TABLE products (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			name TEXT NOT NULL,
@@ -226,35 +274,35 @@ func (h *Handler) initSampleData() {
 		)
 	`)
 	if err != nil {
-		h.logger.Printf("Failed to create products table: %v", err)
+		h.logger.Printf("Failed to create products table for idx %s: %v", idx, err)
 		return
 	}
 	
 	// Insert sample users
-	_, err = h.db.Exec(`
+	_, err = db.Exec(`
 		INSERT INTO users (name, email, age) VALUES 
 		('Alice', 'alice@example.com', 30),
 		('Bob', 'bob@example.com', 25),
 		('Charlie', 'charlie@example.com', 35)
 	`)
 	if err != nil {
-		h.logger.Printf("Failed to insert sample users: %v", err)
+		h.logger.Printf("Failed to insert sample users for idx %s: %v", idx, err)
 		return
 	}
 	
 	// Insert sample products
-	_, err = h.db.Exec(`
+	_, err = db.Exec(`
 		INSERT INTO products (name, price, category) VALUES 
 		('Laptop', 999.99, 'electronics'),
 		('Book', 19.99, 'education'),
 		('Coffee', 4.99, 'beverages')
 	`)
 	if err != nil {
-		h.logger.Printf("Failed to insert sample products: %v", err)
+		h.logger.Printf("Failed to insert sample products for idx %s: %v", idx, err)
 		return
 	}
 	
-	h.logger.Printf("Sample data initialized successfully")
+	h.logger.Printf("Sample data initialized successfully for idx: %s", idx)
 }
 
 // UseDB implements the MySQL UseDB command
@@ -291,10 +339,12 @@ func (h *Handler) HandleQuery(query string) (*mysql.Result, error) {
 
 // Handle SHOW TABLES command
 func (h *Handler) handleShowTables() (*mysql.Result, error) {
-	h.dbMu.RLock()
-	defer h.dbMu.RUnlock()
+	db, err := h.GetCurrentDatabase()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get database: %v", err)
+	}
 	
-	rows, err := h.db.Query("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")
+	rows, err := db.Query("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")
 	if err != nil {
 		return nil, fmt.Errorf("failed to get tables: %v", err)
 	}
@@ -337,8 +387,10 @@ func (h *Handler) handleShowDatabases() (*mysql.Result, error) {
 
 // Handle DESCRIBE queries
 func (h *Handler) handleDescribe(query string) (*mysql.Result, error) {
-	h.dbMu.RLock()
-	defer h.dbMu.RUnlock()
+	db, err := h.GetCurrentDatabase()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get database: %v", err)
+	}
 	
 	queryLower := strings.ToLower(query)
 	
@@ -359,7 +411,7 @@ func (h *Handler) handleDescribe(query string) (*mysql.Result, error) {
 	}
 	
 	// Get table schema from SQLite
-	rows, err := h.db.Query("PRAGMA table_info(" + tableName + ")")
+	rows, err := db.Query("PRAGMA table_info(" + tableName + ")")
 	if err != nil {
 		return nil, fmt.Errorf("table %s not found or error getting schema: %v", tableName, err)
 	}
@@ -583,8 +635,14 @@ func (h *Handler) handleShowVariables() (*mysql.Result, error) {
 }// HandleFieldList implements field list requests
 func (h *Handler) HandleFieldList(table string, wildcard string) ([]*mysql.Field, error) {
 	h.logWithApp("Field list requested for table: %s", table)	
+	
+	db, err := h.GetCurrentDatabase()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get database: %v", err)
+	}
+	
 	// Get table schema from SQLite
-	rows, err := h.db.Query("PRAGMA table_info(" + table + ")")
+	rows, err := db.Query("PRAGMA table_info(" + table + ")")
 	if err != nil {
 		return nil, fmt.Errorf("table %s not found: %v", table, err)
 	}
@@ -654,21 +712,29 @@ func (h *Handler) HandleOtherCommand(cmd byte, data []byte) error {
 	return mysql.NewDefaultError(mysql.ER_UNKNOWN_ERROR, "command not supported")
 }
 
-// Close closes the database connection
+// Close closes all database connections
 func (h *Handler) Close() error {
-	if h.db != nil {
-		return h.db.Close()
+	h.dbMu.Lock()
+	defer h.dbMu.Unlock()
+	
+	for idx, db := range h.databases {
+		if err := db.Close(); err != nil {
+			h.logger.Printf("Error closing database for idx %s: %v", idx, err)
+		}
 	}
 	return nil
 }
 
 // executeSQLiteQuery executes a query directly against SQLite and converts results to MySQL format
 func (h *Handler) executeSQLiteQuery(query string) (*mysql.Result, error) {
-	h.dbMu.RLock()
-	defer h.dbMu.RUnlock()
+	// Get the database for the current idx
+	db, err := h.GetCurrentDatabase()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get database: %v", err)
+	}
 	
 	// First try as a query (SELECT, WITH, etc.) - anything that returns rows
-	rows, err := h.db.Query(query)
+	rows, err := db.Query(query)
 	if err == nil {
 		defer rows.Close()
 		
@@ -721,7 +787,7 @@ func (h *Handler) executeSQLiteQuery(query string) (*mysql.Result, error) {
 	}
 	
 	// If Query() failed, try as Exec() - for INSERT, UPDATE, DELETE, DDL, etc.
-	result, err := h.db.Exec(query)
+	result, err := db.Exec(query)
 	if err != nil {
 		return nil, fmt.Errorf("SQLite error: %v", err)
 	}
