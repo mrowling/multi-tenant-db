@@ -8,14 +8,31 @@ vars:
 tasks:
   # Unit testing
   test:
-    desc: Run all tests
+    desc: Run all tests (unit + integration)
     cmds:
-      - go test -v ./...
+      - task: test:unit
+      - task: test:integration
+
+  test:unit:
+    desc: Run unit tests only
+    cmds:
+      - go test -short ./...
+
+  test:integration:
+    desc: Run integration tests
+    cmds:
+      - go test -tags=integration ./test/integration/...
+
+  test:all:
+    desc: Run all tests (unit + integration)
+    cmds:
+      - task: test:unit
+      - task: test:integration
 
   test-short:
-    desc: Run tests excluding integration tests
+    desc: Run unit tests only (legacy alias)
     cmds:
-      - go test -v ./cmd/...
+      - task: test:unit
 
   coverage:
     desc: Run tests with coverage and generate lcov.info

@@ -5,8 +5,8 @@ import (
 	"os"
 	"testing"
 
-	"multitenant-db/cmd/multi-tenant-db/logger"
-	"multitenant-db/cmd/multi-tenant-db/mysql"
+	"multitenant-db/internal/logger"
+	"multitenant-db/internal/mysql"
 )
 
 func TestDatabaseManagerAdapter(t *testing.T) {
