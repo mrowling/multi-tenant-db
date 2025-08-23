@@ -146,6 +146,8 @@ export DEFAULT_DB_MYSQL_HOST=db.example.com
 
 ## Task Completion Guidelines
 
+Ensure that all tests are passing, all linting is fixed, and the code is well-documented. Also ensure that new scripts are in the tasks file.
+
 When you have fully completed your task, write me a commit message.
 
 Also propose three new ideas for my application, or on what you should do next. 
