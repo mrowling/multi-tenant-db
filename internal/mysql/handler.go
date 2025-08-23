@@ -5,6 +5,7 @@ import (
 	"log"
 	"net"
 	"strings"
+	"time"
 
 	"multitenant-db/internal/config"
 
@@ -17,6 +18,7 @@ type Handler struct {
 	databaseManager *DatabaseManager
 	sessionManager  *SessionManager
 	queryHandlers   *QueryHandlers
+	queryLogger     *QueryLogger
 	logger          *log.Logger
 	config          *config.Config
 }
@@ -36,6 +38,7 @@ func NewHandlerWithConfig(logger *log.Logger, cfg *config.Config) *Handler {
 	handler := &Handler{
 		databaseManager: NewDatabaseManagerWithConfig(logger, defaultDBConfig),
 		sessionManager:  NewSessionManager(),
+		queryLogger:     NewQueryLogger(logger, ""),
 		logger:          logger,
 		config:          cfg, // Store config for authentication
 	}
@@ -47,6 +50,11 @@ func NewHandlerWithConfig(logger *log.Logger, cfg *config.Config) *Handler {
 // GetDatabaseManager returns the database manager (for API access)
 func (h *Handler) GetDatabaseManager() *DatabaseManager {
 	return h.databaseManager
+}
+
+// GetQueryLogger returns the query logger (for API access)
+func (h *Handler) GetQueryLogger() *QueryLogger {
+	return h.queryLogger
 }
 
 // logWithIdx formats a log message including the "idx" user variable if set
@@ -73,8 +81,55 @@ func (h *Handler) UseDB(dbName string) error {
 
 // HandleQuery implements the MySQL Query command
 func (h *Handler) HandleQuery(query string) (*mysql.Result, error) {
+	startTime := time.Now()
+	connectionID := fmt.Sprintf("conn_%d", h.sessionManager.GetCurrentConnection())
+	
 	h.logWithIdx("Executing query: %s", query)
 	
+	// Execute the actual query
+	result, err := h.executeQueryInternal(query)
+	
+	// Get current session to determine tenant ID AFTER query execution
+	// This ensures SET @idx commands are properly reflected in the logs
+	session := h.sessionManager.GetOrCreateSession(h.sessionManager.GetCurrentConnection())
+	tenantIDVal, _ := session.GetUser("idx")
+	tenantID := ""
+	if tenantIDVal != nil {
+		// Convert the tenant ID to string, regardless of its original type
+		switch v := tenantIDVal.(type) {
+		case string:
+			tenantID = v
+		case int:
+			tenantID = fmt.Sprintf("%d", v)
+		case int64:
+			tenantID = fmt.Sprintf("%d", v)
+		case float64:
+			tenantID = fmt.Sprintf("%.0f", v)
+		default:
+			tenantID = fmt.Sprintf("%v", v)
+		}
+	}
+	
+	// Log the query execution
+	duration := time.Since(startTime)
+	success := err == nil
+	errorMsg := ""
+	if err != nil {
+		errorMsg = err.Error()
+	}
+	
+	// Log the query (non-blocking)
+	go func() {
+		if logErr := h.queryLogger.LogQuery(tenantID, query, connectionID, duration, success, errorMsg); logErr != nil {
+			h.logger.Printf("Failed to log query: %v", logErr)
+		}
+	}()
+	
+	return result, err
+}
+
+// executeQueryInternal contains the original query execution logic
+func (h *Handler) executeQueryInternal(query string) (*mysql.Result, error) {
 	// Convert query to lowercase for easier parsing
 	queryLower := strings.ToLower(strings.TrimSpace(query))
 	

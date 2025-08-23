@@ -22,12 +22,69 @@ definitions:
       timestamp:
         type: string
     type: object
+  api.QueryLogEntry:
+    properties:
+      connection_id:
+        type: string
+      duration_ms:
+        type: integer
+      error_message:
+        type: string
+      executed_at:
+        type: string
+      id:
+        type: integer
+      query:
+        type: string
+      success:
+        type: boolean
+      tenant_id:
+        type: string
+    type: object
+  api.QueryLogResponse:
+    properties:
+      logs:
+        items:
+          $ref: '#/definitions/api.QueryLogEntry'
+        type: array
+      page:
+        type: integer
+      page_size:
+        type: integer
+      status:
+        type: string
+      timestamp:
+        type: string
+      total:
+        type: integer
+    type: object
+  api.QueryLogStatsResponse:
+    properties:
+      stats:
+        additionalProperties: true
+        type: object
+      status:
+        type: string
+      timestamp:
+        type: string
+    type: object
   api.Response:
     properties:
       message:
         type: string
       status:
         type: string
+      timestamp:
+        type: string
+    type: object
+  api.TenantsResponse:
+    properties:
+      status:
+        type: string
+      tenants:
+        items:
+          type: string
+        type: array
       timestamp:
         type: string
     type: object
@@ -188,6 +245,94 @@ paths:
       summary: API info
       tags:
       - info
+  /api/v1/query-logs/tenants:
+    get:
+      description: Get a list of all tenants that have query logs
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.TenantsResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.Response'
+      summary: List tenants with query logs
+      tags:
+      - query-logs
+  /api/v1/tenants/{tenant_id}/query-logs:
+    get:
+      description: Retrieve query logs for a specific tenant with optional pagination
+        and time filtering
+      parameters:
+      - description: Tenant ID
+        in: path
+        name: tenant_id
+        required: true
+        type: string
+      - description: 'Page number (default: 1)'
+        in: query
+        name: page
+        type: integer
+      - description: 'Page size (default: 50, max: 1000)'
+        in: query
+        name: page_size
+        type: integer
+      - description: Start time filter (RFC3339 format)
+        in: query
+        name: start_time
+        type: string
+      - description: End time filter (RFC3339 format)
+        in: query
+        name: end_time
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.QueryLogResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.Response'
+      summary: Get query logs for a tenant
+      tags:
+      - query-logs
+  /api/v1/tenants/{tenant_id}/query-stats:
+    get:
+      description: Retrieve query execution statistics for a specific tenant
+      parameters:
+      - description: Tenant ID
+        in: path
+        name: tenant_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.QueryLogStatsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.Response'
+      summary: Get query log statistics for a tenant
+      tags:
+      - query-logs
   /health:
     get:
       description: Returns server health status

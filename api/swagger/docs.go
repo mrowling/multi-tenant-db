@@ -244,6 +244,138 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/query-logs/tenants": {
+            "get": {
+                "description": "Get a list of all tenants that have query logs",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "query-logs"
+                ],
+                "summary": "List tenants with query logs",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.TenantsResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/tenants/{tenant_id}/query-logs": {
+            "get": {
+                "description": "Retrieve query logs for a specific tenant with optional pagination and time filtering",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "query-logs"
+                ],
+                "summary": "Get query logs for a tenant",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Tenant ID",
+                        "name": "tenant_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page number (default: 1)",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page size (default: 50, max: 1000)",
+                        "name": "page_size",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Start time filter (RFC3339 format)",
+                        "name": "start_time",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "End time filter (RFC3339 format)",
+                        "name": "end_time",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.QueryLogResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/tenants/{tenant_id}/query-stats": {
+            "get": {
+                "description": "Retrieve query execution statistics for a specific tenant",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "query-logs"
+                ],
+                "summary": "Get query log statistics for a tenant",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Tenant ID",
+                        "name": "tenant_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.QueryLogStatsResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/health": {
             "get": {
                 "description": "Returns server health status",
@@ -302,6 +434,76 @@ const docTemplate = `{
                 }
             }
         },
+        "api.QueryLogEntry": {
+            "type": "object",
+            "properties": {
+                "connection_id": {
+                    "type": "string"
+                },
+                "duration_ms": {
+                    "type": "integer"
+                },
+                "error_message": {
+                    "type": "string"
+                },
+                "executed_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "query": {
+                    "type": "string"
+                },
+                "success": {
+                    "type": "boolean"
+                },
+                "tenant_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "api.QueryLogResponse": {
+            "type": "object",
+            "properties": {
+                "logs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/api.QueryLogEntry"
+                    }
+                },
+                "page": {
+                    "type": "integer"
+                },
+                "page_size": {
+                    "type": "integer"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "timestamp": {
+                    "type": "string"
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "api.QueryLogStatsResponse": {
+            "type": "object",
+            "properties": {
+                "stats": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "status": {
+                    "type": "string"
+                },
+                "timestamp": {
+                    "type": "string"
+                }
+            }
+        },
         "api.Response": {
             "type": "object",
             "properties": {
@@ -310,6 +512,23 @@ const docTemplate = `{
                 },
                 "status": {
                     "type": "string"
+                },
+                "timestamp": {
+                    "type": "string"
+                }
+            }
+        },
+        "api.TenantsResponse": {
+            "type": "object",
+            "properties": {
+                "status": {
+                    "type": "string"
+                },
+                "tenants": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "timestamp": {
                     "type": "string"

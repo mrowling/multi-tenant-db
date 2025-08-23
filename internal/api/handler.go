@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -319,5 +320,43 @@ func (h *Handler) SetupRoutes() *http.ServeMux {
 	mux.HandleFunc("/api/info", h.InfoHandler)
 	mux.HandleFunc("/api/databases", h.DatabasesHandler)
 	
+	// Query log routes - simplified paths
+	mux.HandleFunc("/api/query-logs", h.ListQueryLogTenantsHandler)
+	mux.HandleFunc("/api/query-logs/", h.handleQueryLogRoutes)
+	
 	return mux
+}
+
+// handleQueryLogRoutes handles query log related routes
+func (h *Handler) handleQueryLogRoutes(w http.ResponseWriter, r *http.Request) {
+	// Parse the path to extract tenant ID and action
+	path := r.URL.Path[len("/api/query-logs/"):]
+	
+	if path == "" {
+		// Handle /api/query-logs/ -> list tenants
+		h.ListQueryLogTenantsHandler(w, r)
+		return
+	}
+	
+	// Split path to get tenant and action
+	parts := strings.Split(path, "/")
+	if len(parts) == 0 {
+		http.NotFound(w, r)
+		return
+	}
+	
+	if len(parts) == 1 {
+		// Handle /api/query-logs/{tenantId} -> get logs for tenant
+		h.GetQueryLogsHandler(w, r)
+		return
+	}
+	
+	if len(parts) == 2 && parts[1] == "stats" {
+		// Handle /api/query-logs/{tenantId}/stats -> get stats for tenant
+		h.GetQueryLogStatsHandler(w, r)
+		return
+	}
+	
+	// If no specific endpoint matches, return 404
+	http.NotFound(w, r)
 }

@@ -23,6 +23,38 @@ tasks:
     cmds:
       - go test -tags=integration ./test/integration/...
 
+  test:integration:full:
+    desc: Run integration tests with server startup/shutdown
+    cmds:
+      - echo "Starting server for integration tests..."
+      - task: build
+      - ./bin/multitenant-db &
+      - echo $! > integration-server.pid
+      - sleep 2
+      - echo "Running integration tests..."
+      - |
+        set +e  # Don't exit on test failure
+
+        # Set up trap to ensure cleanup happens no matter what
+        cleanup() {
+          echo "Performing cleanup..."
+          # Always kill any running multitenant-db processes
+          pkill -f multitenant-db 2>/dev/null || true
+          # Clean up PID file if it exists
+          rm -f integration-server.pid 2>/dev/null || true
+          echo "Cleanup completed."
+        }
+
+        # Set trap for EXIT signal (runs on script exit, including errors)
+        trap cleanup EXIT
+
+        # Run the tests
+        go test -tags=integration -v ./test/integration/...
+        TEST_EXIT_CODE=$?
+
+        echo "Integration tests completed with exit code: $TEST_EXIT_CODE"
+        exit $TEST_EXIT_CODE
+
   test:all:
     desc: Run all tests (unit + integration)
     cmds:

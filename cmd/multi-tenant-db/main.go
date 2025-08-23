@@ -47,6 +47,11 @@ func (adapter *DatabaseManagerAdapter) ListDatabases() []string {
 	return adapter.handler.GetDatabaseManager().ListDatabases()
 }
 
+// GetQueryLogger returns the query logger
+func (adapter *DatabaseManagerAdapter) GetQueryLogger() interface{} {
+	return adapter.handler.GetQueryLogger()
+}
+
 func main() {
 	// Parse command line flags
 	var (

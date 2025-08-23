@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/go-mysql-org/go-mysql/mysql"
 )
@@ -448,5 +449,125 @@ func TestHandler_ErrorHandling(t *testing.T) {
 	_, err = handler.HandleQuery("SET invalid syntax")
 	if err == nil {
 		t.Error("Invalid SET syntax should return an error")
+	}
+}
+
+func TestHandler_NumericTenantID(t *testing.T) {
+	logger := log.New(os.Stdout, "[TEST] ", log.LstdFlags)
+	handler := NewHandler(logger)
+
+	// Set up a session
+	connID := handler.sessionManager.GetNextConnectionID()
+	handler.sessionManager.SetCurrentConnection(connID)
+
+	// Test numeric tenant IDs (int, int64, float64)
+	testCases := []struct {
+		name        string
+		tenantValue interface{}
+		expectedID  string
+	}{
+		{"integer", 123, "123"},
+		{"int64", int64(456), "456"},
+		{"float64", float64(789), "789"},
+		{"float64_with_decimal", float64(123.45), "123"},
+		{"string", "string_tenant", "string_tenant"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Get session and set the tenant ID with different types
+			session := handler.sessionManager.GetOrCreateSession(connID)
+			session.SetUser("idx", tc.tenantValue)
+
+			// Execute a simple query
+			result, err := handler.HandleQuery("SELECT 1")
+			if err != nil {
+				t.Fatalf("Query should not fail: %v", err)
+			}
+			if result == nil {
+				t.Fatal("Result should not be nil")
+			}
+
+			// Wait a bit for the goroutine to log the query
+			// Note: In a real scenario, we'd check the query logs directly,
+			// but this test verifies that queries with numeric tenant IDs don't panic
+			
+			// Verify the session still has the correct value
+			idxVal, exists := session.GetUser("idx")
+			if !exists {
+				t.Fatal("idx should still exist in session")
+			}
+			if idxVal != tc.tenantValue {
+				t.Errorf("Expected idx value %v, got %v", tc.tenantValue, idxVal)
+			}
+		})
+	}
+}
+
+func TestHandler_NumericTenantIDQueryLogging(t *testing.T) {
+	logger := log.New(os.Stdout, "[TEST] ", log.LstdFlags)
+	handler := NewHandler(logger)
+
+	// Set up a session
+	connID := handler.sessionManager.GetNextConnectionID()
+	handler.sessionManager.SetCurrentConnection(connID)
+
+	// Test that numeric tenant IDs are properly converted to strings in query logs
+	testCases := []struct {
+		name           string
+		setCommand     string
+		expectedTenant string
+	}{
+		{"numeric_123", "SET @idx = 123", "123"},
+		{"numeric_456", "SET @idx = 456", "456"},
+		{"string_abc", "SET @idx = 'abc'", "abc"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Execute the SET command
+			_, err := handler.HandleQuery(tc.setCommand)
+			if err != nil {
+				t.Fatalf("SET command should not fail: %v", err)
+			}
+
+			// Execute a query that will be logged
+			_, err = handler.HandleQuery("SELECT 1 as test_query")
+			if err != nil {
+				t.Fatalf("Test query should not fail: %v", err)
+			}
+
+			// Wait for async logging to complete
+			time.Sleep(50 * time.Millisecond)
+
+			// Get the query logs for the expected tenant
+			queryLogger := handler.GetQueryLogger()
+			logs, err := queryLogger.GetQueryLogs(tc.expectedTenant, 10, 0, nil, nil)
+			if err != nil {
+				t.Fatalf("Failed to get query logs: %v", err)
+			}
+
+			// Verify that queries are logged to the correct tenant
+			found := false
+			for _, logInterface := range logs {
+				if logEntry, ok := logInterface.(QueryLogEntry); ok {
+					if logEntry.TenantID == tc.expectedTenant && logEntry.Query == "SELECT 1 as test_query" {
+						found = true
+						break
+					}
+				}
+			}
+
+			if !found {
+				t.Errorf("Expected to find test query logged to tenant %s", tc.expectedTenant)
+				// Debug: print all logs for this tenant
+				t.Logf("Found %d logs for tenant %s:", len(logs), tc.expectedTenant)
+				for i, logInterface := range logs {
+					if logEntry, ok := logInterface.(QueryLogEntry); ok {
+						t.Logf("  Log %d: Query='%s', TenantID='%s'", i, logEntry.Query, logEntry.TenantID)
+					}
+				}
+			}
+		})
 	}
 }
