@@ -35,15 +35,23 @@ tasks:
       - task: test:unit
 
   coverage:
-    desc: Run tests with coverage and generate lcov.info
+    desc: Run unit tests with coverage and generate lcov.info
     cmds:
-      - echo "Running tests with coverage..."
-      - go test -coverprofile=coverage.out ./...
+      - echo "Running unit tests with coverage..."
+      - go test -short -coverprofile=coverage.out ./...
       - echo "Converting coverage to lcov format..."
       - gcov2lcov -infile=coverage.out -outfile=lcov.info
       - echo "Coverage summary:"
       - go tool cover -func=coverage.out | grep total
       - echo "✅ Coverage files generated (coverage.out, lcov.info)"
+
+  coverage:integration:
+    desc: Run integration tests with coverage
+    cmds:
+      - echo "Running integration tests with coverage..."
+      - go test -tags=integration -coverprofile=coverage_integration.out ./test/integration/...
+      - echo "Integration test coverage summary:"
+      - go tool cover -func=coverage_integration.out | grep total
 
   coverage-html:
     desc: Run tests with coverage and open HTML report

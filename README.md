@@ -1,6 +1,33 @@
 # Multitenant DB - MySQL-Compatible Multi-Tenant Database Server
 
-A Go application that implements the MySQL wire protocol with SQLite3 backends, providing complete database isolation per tenant using `idx` values. Each tenant gets their own isolated SQLite database while maintaining MySQL protocol compatibility.
+A Go application that implements the MySQL wire protocol with SQLite3 backends, providing complete database isolation per tenant using `idx` values. Each tenant gets their own isolated# Run tests with coverage
+task coverage
+```
+
+## 🧰 Development Tasks
+
+The project uses [Task](https://taskfile.dev/) for automation. Available tasks:
+
+```bash
+# Build and run
+task build          # Build the application
+task run            # Run the server
+task dev            # Run in development mode with auto-reload
+
+# Testing
+task test:unit      # Run unit tests only
+task test:integration # Run integration tests only  
+task test:all       # Run all tests
+task coverage       # Generate test coverage report
+
+# Utilities
+task clean          # Clean build artifacts
+task fmt            # Format code
+task vet            # Run go vet
+task tidy           # Tidy go modules
+```
+
+## 🛠️ Extending the Serverte database while maintaining MySQL protocol compatibility.
 
 ## 🌟 Key Features
 
@@ -32,10 +59,10 @@ A Go application that implements the MySQL wire protocol with SQLite3 backends, 
 ### 1. Build and Run
 ```bash
 # Build the application
-go build -o multitenant-db
+task build
 
 # Run the server
-./multitenant-db
+task run
 ```
 
 ### 2. Connect with MySQL Client
@@ -215,7 +242,44 @@ For production use, implement:
 - **Per-Tenant Isolation**: Complete data separation between tenants
 - **Auto-Initialization**: Sample data created for each new tenant
 
-## 🛠️ Extending the Server
+## � Project Structure
+
+Following the [Standard Go Project Layout](https://github.com/golang-standards/project-layout):
+
+```
+.
+├── cmd/multi-tenant-db/        # Main application
+│   ├── main.go                # Application entry point
+│   └── main_test.go           # Main application tests
+├── internal/                   # Private application code
+│   ├── api/                   # HTTP API handlers
+│   ├── logger/                # Logging functionality  
+│   └── mysql/                 # MySQL protocol implementation
+├── test/integration/           # Integration tests
+│   └── integration_test.go    # Full system integration tests
+├── Taskfile.yml               # Task automation
+└── README.md
+```
+
+### Testing Structure
+
+The project uses build tags to separate unit and integration tests:
+
+```bash
+# Run unit tests only (default)
+task test:unit
+
+# Run integration tests only
+task test:integration  
+
+# Run all tests
+task test:all
+
+# Run tests with coverage
+task coverage
+```
+
+## �🛠️ Extending the Server
 
 ### Adding Custom Tables
 ```go
