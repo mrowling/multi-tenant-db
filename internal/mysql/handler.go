@@ -6,6 +6,8 @@ import (
 	"net"
 	"strings"
 
+	"multitenant-db/internal/config"
+
 	"github.com/go-mysql-org/go-mysql/mysql"
 	"github.com/go-mysql-org/go-mysql/server"
 )
@@ -20,8 +22,18 @@ type Handler struct {
 
 // NewHandler creates a new MySQL protocol handler
 func NewHandler(logger *log.Logger) *Handler {
+	return NewHandlerWithConfig(logger, nil)
+}
+
+// NewHandlerWithConfig creates a new MySQL protocol handler with configuration
+func NewHandlerWithConfig(logger *log.Logger, cfg *config.Config) *Handler {
+	var defaultDBConfig *config.DefaultDatabaseConfig
+	if cfg != nil && cfg.DefaultDatabase != nil {
+		defaultDBConfig = cfg.DefaultDatabase
+	}
+	
 	handler := &Handler{
-		databaseManager: NewDatabaseManager(logger),
+		databaseManager: NewDatabaseManagerWithConfig(logger, defaultDBConfig),
 		sessionManager:  NewSessionManager(),
 		logger:          logger,
 	}

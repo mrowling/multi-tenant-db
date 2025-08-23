@@ -6,33 +6,74 @@ import (
 	"log"
 	"sync"
 
+	"multitenant-db/internal/config"
+
+	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/mattn/go-sqlite3"
 )
 
 // DatabaseManager manages multiple SQLite databases, one per idx
 type DatabaseManager struct {
-	databases map[string]*sql.DB  // key is idx value, value is DB connection
-	dbMu      sync.RWMutex
-	logger    *log.Logger
+	databases     map[string]*sql.DB  // key is idx value, value is DB connection
+	dbMu          sync.RWMutex
+	logger        *log.Logger
+	defaultConfig *config.DefaultDatabaseConfig // Optional default database configuration
 }
 
 // NewDatabaseManager creates a new database manager
 func NewDatabaseManager(logger *log.Logger) *DatabaseManager {
+	return NewDatabaseManagerWithConfig(logger, nil)
+}
+
+// NewDatabaseManagerWithConfig creates a new database manager with optional default database configuration
+func NewDatabaseManagerWithConfig(logger *log.Logger, defaultConfig *config.DefaultDatabaseConfig) *DatabaseManager {
 	dm := &DatabaseManager{
-		databases: make(map[string]*sql.DB),
-		logger:    logger,
+		databases:     make(map[string]*sql.DB),
+		logger:        logger,
+		defaultConfig: defaultConfig,
 	}
 	
-	// Create default database (for when no idx is set)
-	defaultDB, err := sql.Open("sqlite3", ":memory:")
-	if err != nil {
-		logger.Fatalf("Failed to create default SQLite database: %v", err)
+	// Create default database
+	var defaultDB *sql.DB
+	var err error
+	
+	if defaultConfig != nil {
+		// Use configured default database
+		defaultDB, err = dm.createConfiguredDatabase(defaultConfig)
+		if err != nil {
+			logger.Printf("Failed to create configured default database, falling back to in-memory SQLite: %v", err)
+			defaultDB, err = sql.Open("sqlite3", ":memory:")
+		}
+	} else {
+		// Create default in-memory SQLite database (existing behavior)
+		defaultDB, err = sql.Open("sqlite3", ":memory:")
 	}
+	
+	if err != nil {
+		logger.Fatalf("Failed to create default database: %v", err)
+	}
+	
 	dm.databases["default"] = defaultDB
 	
 	// Initialize sample data in default database
 	dm.initSampleData("default")
 	return dm
+}
+
+// createConfiguredDatabase creates a database connection using the provided configuration
+func (dm *DatabaseManager) createConfiguredDatabase(dbConfig *config.DefaultDatabaseConfig) (*sql.DB, error) {
+	switch dbConfig.Type {
+	case config.DatabaseTypeSQLite:
+		dm.logger.Printf("Creating SQLite default database: %s", dbConfig.ConnectionString)
+		return sql.Open("sqlite3", dbConfig.ConnectionString)
+		
+	case config.DatabaseTypeMySQL:
+		dm.logger.Printf("Creating MySQL default database connection to: %s", dbConfig.MySQLHost)
+		return sql.Open("mysql", dbConfig.ConnectionString)
+		
+	default:
+		return nil, fmt.Errorf("unsupported database type: %s", dbConfig.Type)
+	}
 }
 
 // GetOrCreateDatabase gets or creates a database for the specified idx
@@ -84,59 +125,105 @@ func (dm *DatabaseManager) initSampleData(idx string) {
 		return
 	}
 	
+	// Determine if this is a MySQL or SQLite database
+	isMySQL := dm.isDefaultDatabase(idx) && dm.defaultConfig != nil && dm.defaultConfig.Type == config.DatabaseTypeMySQL
+	
+	var createUsersTable, createProductsTable, insertUsers, insertProducts string
+	
+	if isMySQL {
+		// MySQL syntax
+		createUsersTable = `
+			CREATE TABLE IF NOT EXISTS users (
+				id INT AUTO_INCREMENT PRIMARY KEY,
+				name VARCHAR(255) NOT NULL,
+				email VARCHAR(255),
+				age INT
+			)`
+		
+		createProductsTable = `
+			CREATE TABLE IF NOT EXISTS products (
+				id INT AUTO_INCREMENT PRIMARY KEY,
+				name VARCHAR(255) NOT NULL,
+				price DECIMAL(10,2),
+				category VARCHAR(255)
+			)`
+		
+		insertUsers = `
+			INSERT IGNORE INTO users (name, email, age) VALUES 
+			('Alice', 'alice@example.com', 30),
+			('Bob', 'bob@example.com', 25),
+			('Charlie', 'charlie@example.com', 35)`
+		
+		insertProducts = `
+			INSERT IGNORE INTO products (name, price, category) VALUES 
+			('Laptop', 999.99, 'electronics'),
+			('Book', 19.99, 'education'),
+			('Coffee', 4.99, 'beverages')`
+	} else {
+		// SQLite syntax
+		createUsersTable = `
+			CREATE TABLE IF NOT EXISTS users (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				name TEXT NOT NULL,
+				email TEXT,
+				age INTEGER
+			)`
+		
+		createProductsTable = `
+			CREATE TABLE IF NOT EXISTS products (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				name TEXT NOT NULL,
+				price REAL,
+				category TEXT
+			)`
+		
+		insertUsers = `
+			INSERT OR IGNORE INTO users (name, email, age) VALUES 
+			('Alice', 'alice@example.com', 30),
+			('Bob', 'bob@example.com', 25),
+			('Charlie', 'charlie@example.com', 35)`
+		
+		insertProducts = `
+			INSERT OR IGNORE INTO products (name, price, category) VALUES 
+			('Laptop', 999.99, 'electronics'),
+			('Book', 19.99, 'education'),
+			('Coffee', 4.99, 'beverages')`
+	}
+	
 	// Create users table
-	_, err := db.Exec(`
-		CREATE TABLE users (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			name TEXT NOT NULL,
-			email TEXT,
-			age INTEGER
-		)
-	`)
+	_, err := db.Exec(createUsersTable)
 	if err != nil {
 		dm.logger.Printf("Failed to create users table for idx %s: %v", idx, err)
 		return
 	}
 	
 	// Create products table
-	_, err = db.Exec(`
-		CREATE TABLE products (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			name TEXT NOT NULL,
-			price REAL,
-			category TEXT
-		)
-	`)
+	_, err = db.Exec(createProductsTable)
 	if err != nil {
 		dm.logger.Printf("Failed to create products table for idx %s: %v", idx, err)
 		return
 	}
 	
 	// Insert sample users
-	_, err = db.Exec(`
-		INSERT INTO users (name, email, age) VALUES 
-		('Alice', 'alice@example.com', 30),
-		('Bob', 'bob@example.com', 25),
-		('Charlie', 'charlie@example.com', 35)
-	`)
+	_, err = db.Exec(insertUsers)
 	if err != nil {
 		dm.logger.Printf("Failed to insert sample users for idx %s: %v", idx, err)
 		return
 	}
 	
 	// Insert sample products
-	_, err = db.Exec(`
-		INSERT INTO products (name, price, category) VALUES 
-		('Laptop', 999.99, 'electronics'),
-		('Book', 19.99, 'education'),
-		('Coffee', 4.99, 'beverages')
-	`)
+	_, err = db.Exec(insertProducts)
 	if err != nil {
 		dm.logger.Printf("Failed to insert sample products for idx %s: %v", idx, err)
 		return
 	}
 	
 	dm.logger.Printf("Sample data initialized successfully for idx: %s", idx)
+}
+
+// isDefaultDatabase checks if the given idx represents the default database
+func (dm *DatabaseManager) isDefaultDatabase(idx string) bool {
+	return idx == "" || idx == "default"
 }
 
 // Close closes all database connections
