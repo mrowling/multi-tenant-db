@@ -333,3 +333,22 @@ Logs are written to:
 MIT License - see [LICENSE](LICENSE) file for details.
 
 The software is provided "AS IS", without warranty of any kind. No support obligations.
+
+## 📖 API Documentation (Swagger/OpenAPI)
+
+During development, the HTTP server serves interactive Swagger UI and OpenAPI docs at:
+
+- [http://localhost:8080/swagger/index.html](http://localhost:8080/swagger/index.html)
+
+The OpenAPI spec and Swagger files are located in:
+
+- `api/swagger/swagger.json` (OpenAPI JSON)
+- `api/swagger/swagger.yaml` (OpenAPI YAML)
+
+To update the docs after editing API comments, run:
+
+```bash
+swag init -g cmd/multi-tenant-db/main.go -o ./api/swagger
+```
+
+> **Note:** Swagger UI is only available in development mode (when `ENV=development` or unset).

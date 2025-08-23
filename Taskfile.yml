@@ -117,3 +117,14 @@ tasks:
     desc: Install required development tools
     cmds:
       - go install github.com/jandelgado/gcov2lcov@latest
+
+  swagger:
+    desc: Generate and validate Swagger (OpenAPI) docs using swaggo/swag
+    cmds:
+      - swag init -g cmd/multi-tenant-db/main.go -o ./api/swagger
+
+  install-dev-tools:
+    desc: Install all required development tools
+    cmds:
+      - go install github.com/jandelgado/gcov2lcov@latest
+      - go install github.com/swaggo/swag/cmd/swag@latest

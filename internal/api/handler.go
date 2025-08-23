@@ -67,6 +67,13 @@ func (h *Handler) LoggingMiddleware(next http.Handler) http.Handler {
 	})
 }
 
+// HealthHandler godoc
+// @Summary Health check
+// @Description Returns server health status
+// @Tags health
+// @Produce json
+// @Success 200 {object} Response
+// @Router /health [get]
 // Health check endpoint
 func (h *Handler) HealthHandler(w http.ResponseWriter, r *http.Request) {
 	response := Response{
@@ -87,6 +94,13 @@ func (h *Handler) HealthHandler(w http.ResponseWriter, r *http.Request) {
 	h.logger.Printf("Health check requested from %s", r.RemoteAddr)
 }
 
+// RootHandler godoc
+// @Summary Root welcome
+// @Description Welcome message for Multitenant DB API
+// @Tags root
+// @Produce json
+// @Success 200 {object} Response
+// @Router / [get]
 // Root endpoint
 func (h *Handler) RootHandler(w http.ResponseWriter, r *http.Request) {
 	response := Response{
@@ -107,6 +121,13 @@ func (h *Handler) RootHandler(w http.ResponseWriter, r *http.Request) {
 	h.logger.Printf("Root endpoint accessed from %s", r.RemoteAddr)
 }
 
+// InfoHandler godoc
+// @Summary API info
+// @Description Returns API and protocol information
+// @Tags info
+// @Produce json
+// @Success 200 {object} map[string]interface{}
+// @Router /api/info [get]
 // Info endpoint with API information
 func (h *Handler) InfoHandler(w http.ResponseWriter, r *http.Request) {
 	info := map[string]interface{}{
@@ -170,6 +191,21 @@ func (h *Handler) InfoHandler(w http.ResponseWriter, r *http.Request) {
 	h.logger.Printf("API info requested from %s", r.RemoteAddr)
 }
 
+// DatabasesHandler godoc
+// @Summary Manage tenant databases
+// @Description List, create, or delete tenant databases
+// @Tags databases
+// @Produce json
+// @Param idx query string false "Tenant idx (for DELETE)"
+// @Param request body CreateDatabaseRequest false "Create database request (for POST)"
+// @Success 200 {object} DatabaseResponse "List/Delete success"
+// @Success 201 {object} map[string]interface{} "Create success"
+// @Failure 400 {object} map[string]interface{} "Bad request"
+// @Failure 405 {object} map[string]interface{} "Method not allowed"
+// @Failure 500 {object} map[string]interface{} "Internal error"
+// @Router /api/databases [get]
+// @Router /api/databases [post]
+// @Router /api/databases [delete]
 // DatabasesHandler handles GET, POST, DELETE for /api/databases
 func (h *Handler) DatabasesHandler(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {

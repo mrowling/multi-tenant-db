@@ -1,0 +1,204 @@
+definitions:
+  api.CreateDatabaseRequest:
+    properties:
+      idx:
+        type: string
+    type: object
+  api.DatabaseInfo:
+    properties:
+      idx:
+        type: string
+      name:
+        type: string
+    type: object
+  api.DatabaseResponse:
+    properties:
+      databases:
+        items:
+          $ref: '#/definitions/api.DatabaseInfo'
+        type: array
+      status:
+        type: string
+      timestamp:
+        type: string
+    type: object
+  api.Response:
+    properties:
+      message:
+        type: string
+      status:
+        type: string
+      timestamp:
+        type: string
+    type: object
+info:
+  contact: {}
+paths:
+  /:
+    get:
+      description: Welcome message for Multitenant DB API
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.Response'
+      summary: Root welcome
+      tags:
+      - root
+  /api/databases:
+    delete:
+      description: List, create, or delete tenant databases
+      parameters:
+      - description: Tenant idx (for DELETE)
+        in: query
+        name: idx
+        type: string
+      - description: Create database request (for POST)
+        in: body
+        name: request
+        schema:
+          $ref: '#/definitions/api.CreateDatabaseRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List/Delete success
+          schema:
+            $ref: '#/definitions/api.DatabaseResponse'
+        "201":
+          description: Create success
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request
+          schema:
+            additionalProperties: true
+            type: object
+        "405":
+          description: Method not allowed
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Manage tenant databases
+      tags:
+      - databases
+    get:
+      description: List, create, or delete tenant databases
+      parameters:
+      - description: Tenant idx (for DELETE)
+        in: query
+        name: idx
+        type: string
+      - description: Create database request (for POST)
+        in: body
+        name: request
+        schema:
+          $ref: '#/definitions/api.CreateDatabaseRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List/Delete success
+          schema:
+            $ref: '#/definitions/api.DatabaseResponse'
+        "201":
+          description: Create success
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request
+          schema:
+            additionalProperties: true
+            type: object
+        "405":
+          description: Method not allowed
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Manage tenant databases
+      tags:
+      - databases
+    post:
+      description: List, create, or delete tenant databases
+      parameters:
+      - description: Tenant idx (for DELETE)
+        in: query
+        name: idx
+        type: string
+      - description: Create database request (for POST)
+        in: body
+        name: request
+        schema:
+          $ref: '#/definitions/api.CreateDatabaseRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List/Delete success
+          schema:
+            $ref: '#/definitions/api.DatabaseResponse'
+        "201":
+          description: Create success
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request
+          schema:
+            additionalProperties: true
+            type: object
+        "405":
+          description: Method not allowed
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Manage tenant databases
+      tags:
+      - databases
+  /api/info:
+    get:
+      description: Returns API and protocol information
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: API info
+      tags:
+      - info
+  /health:
+    get:
+      description: Returns server health status
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.Response'
+      summary: Health check
+      tags:
+      - health
+swagger: "2.0"

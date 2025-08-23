@@ -6,6 +6,10 @@ import (
 	"net/http"
 	"time"
 
+	// Swagger imports
+	_ "multitenant-db/api/swagger"
+	"github.com/swaggo/http-swagger"
+
 	"multitenant-db/internal/api"
 	"multitenant-db/internal/config"
 	"multitenant-db/internal/logger"
@@ -164,7 +168,12 @@ func main() {
 	
 	// Setup HTTP routes
 	mux := apiHandler.SetupRoutes()
-	
+
+	// Serve Swagger docs in development mode
+	if cfg.Env == "development" || cfg.Env == "dev" || cfg.Env == "" {
+		mux.Handle("/swagger/", httpSwagger.WrapHandler)
+	}
+
 	// Wrap with logging middleware
 	handler := apiHandler.LoggingMiddleware(mux)
 	
@@ -187,7 +196,9 @@ func main() {
 		fmt.Sprintf("http://localhost:%d/health", cfg.HTTPPort),
 		fmt.Sprintf("http://localhost:%d/api/info", cfg.HTTPPort),
 	}
-	
+	if cfg.Env == "development" || cfg.Env == "dev" || cfg.Env == "" {
+		endpoints = append(endpoints, fmt.Sprintf("http://localhost:%d/swagger/index.html", cfg.HTTPPort))
+	}
 	for _, endpoint := range endpoints {
 		appLogger.Printf("  %s", endpoint)
 	}
