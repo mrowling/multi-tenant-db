@@ -54,6 +54,8 @@ func main() {
 		dbPassword = flag.String("default-db-password", "", "MySQL password (for mysql type)")
 		dbName     = flag.String("default-db-name", "", "MySQL database name (for mysql type)")
 		dbSSLMode  = flag.String("default-db-ssl-mode", "", "MySQL SSL mode (for mysql type)")
+		authUser   = flag.String("auth-username", "", "Username for MySQL protocol authentication")
+		authPass   = flag.String("auth-password", "", "Password for MySQL protocol authentication")
 		httpPort   = flag.Int("http-port", 8080, "HTTP server port")
 		mysqlPort  = flag.Int("mysql-port", 3306, "MySQL protocol server port")
 	)
@@ -111,6 +113,19 @@ func main() {
 		}
 	}
 	
+	// Configure authentication from command line flags
+	if *authUser != "" || *authPass != "" {
+		cfg.Auth = &config.AuthConfig{
+			Username: *authUser,
+			Password: *authPass,
+		}
+		
+		// Set default username if not provided
+		if cfg.Auth.Username == "" {
+			cfg.Auth.Username = "root"
+		}
+	}
+	
 	// Validate configuration
 	if err := cfg.Validate(); err != nil {
 		appLogger.Fatalf("Invalid configuration: %v", err)
@@ -126,6 +141,13 @@ func main() {
 		}
 	} else {
 		appLogger.Printf("Using default in-memory SQLite database")
+	}
+	
+	// Log authentication configuration if present
+	if cfg.Auth != nil {
+		appLogger.Printf("MySQL protocol authentication enabled for user: %s", cfg.Auth.Username)
+	} else {
+		appLogger.Printf("MySQL protocol authentication: using default credentials (root with no password)")
 	}
 	
 	// Create MySQL protocol handler with configuration
@@ -170,7 +192,12 @@ func main() {
 		appLogger.Printf("  %s", endpoint)
 	}
 	
-	appLogger.Printf("MySQL connection: mysql -h 127.0.0.1 -P %d -u root --protocol=TCP", cfg.MySQLPort)
+	// Show MySQL connection with correct username
+	username := "root"
+	if cfg.Auth != nil {
+		username = cfg.Auth.Username
+	}
+	appLogger.Printf("MySQL connection: mysql -h 127.0.0.1 -P %d -u %s --protocol=TCP", cfg.MySQLPort, username)
 	
 	// Start HTTP server
 	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {

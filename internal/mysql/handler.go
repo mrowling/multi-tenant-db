@@ -18,6 +18,7 @@ type Handler struct {
 	sessionManager  *SessionManager
 	queryHandlers   *QueryHandlers
 	logger          *log.Logger
+	config          *config.Config
 }
 
 // NewHandler creates a new MySQL protocol handler
@@ -36,6 +37,7 @@ func NewHandlerWithConfig(logger *log.Logger, cfg *config.Config) *Handler {
 		databaseManager: NewDatabaseManagerWithConfig(logger, defaultDBConfig),
 		sessionManager:  NewSessionManager(),
 		logger:          logger,
+		config:          cfg, // Store config for authentication
 	}
 	
 	handler.queryHandlers = NewQueryHandlers(handler)
@@ -287,8 +289,16 @@ func StartServer(port int, handler *Handler) error {
 		go func() {
 			defer conn.Close()
 			
-			// Create new MySQL connection
-			mysqlConn, err := server.NewConn(conn, "root", "", handler)
+			// Get authentication credentials
+			username := "root"
+			password := ""
+			if handler.config != nil && handler.config.Auth != nil {
+				username = handler.config.Auth.Username
+				password = handler.config.Auth.Password
+			}
+			
+			// Create new MySQL connection with authentication
+			mysqlConn, err := server.NewConn(conn, username, password, handler)
 			if err != nil {
 				handler.logger.Printf("Failed to create MySQL connection: %v", err)
 				return

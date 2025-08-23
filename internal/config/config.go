@@ -29,9 +29,16 @@ type DefaultDatabaseConfig struct {
 	MySQLSSLMode     string       `json:"mysql_ssl_mode,omitempty"`    // MySQL SSL mode
 }
 
+// AuthConfig holds authentication configuration for MySQL protocol connections
+type AuthConfig struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
 // Config holds the application configuration
 type Config struct {
 	DefaultDatabase *DefaultDatabaseConfig `json:"default_database,omitempty"`
+	Auth            *AuthConfig            `json:"auth,omitempty"`
 	HTTPPort        int                    `json:"http_port"`
 	MySQLPort       int                    `json:"mysql_port"`
 }
@@ -57,6 +64,20 @@ func (c *Config) LoadFromEnv() error {
 	if port := os.Getenv("MYSQL_PORT"); port != "" {
 		if p, err := strconv.Atoi(port); err == nil {
 			c.MySQLPort = p
+		}
+	}
+
+	// Authentication Configuration
+	if username := os.Getenv("AUTH_USERNAME"); username != "" {
+		c.Auth = &AuthConfig{
+			Username: username,
+			Password: os.Getenv("AUTH_PASSWORD"),
+		}
+	} else if os.Getenv("AUTH_PASSWORD") != "" {
+		// If only password is provided, use default username
+		c.Auth = &AuthConfig{
+			Username: "root",
+			Password: os.Getenv("AUTH_PASSWORD"),
 		}
 	}
 
@@ -200,6 +221,12 @@ func (c *Config) Validate() error {
 		}
 	}
 
+	if c.Auth != nil {
+		if err := c.Auth.Validate(); err != nil {
+			return fmt.Errorf("invalid authentication configuration: %v", err)
+		}
+	}
+
 	return nil
 }
 
@@ -224,5 +251,14 @@ func (dbc *DefaultDatabaseConfig) Validate() error {
 		return fmt.Errorf("unsupported database type: %s", dbc.Type)
 	}
 
+	return nil
+}
+
+// Validate validates the authentication configuration
+func (ac *AuthConfig) Validate() error {
+	if ac.Username == "" {
+		return fmt.Errorf("username is required")
+	}
+	// Password can be empty (for development/testing)
 	return nil
 }
