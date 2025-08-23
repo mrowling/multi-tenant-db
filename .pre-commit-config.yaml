@@ -1,0 +1,23 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+  - repo: local
+    hooks:
+      - id: task-swagger-validate
+        name: Validate Swagger (OpenAPI) docs
+        entry: task swagger
+        language: system
+        pass_filenames: false
+        always_run: true
+        verbose: true
+      - id: task-vet
+        name: Go vet (static analysis)
+        entry: task vet
+        language: system
+        pass_filenames: false
+        always_run: true
+        verbose: true

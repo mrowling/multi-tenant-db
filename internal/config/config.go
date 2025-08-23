@@ -41,6 +41,7 @@ type Config struct {
 	Auth            *AuthConfig            `json:"auth,omitempty"`
 	HTTPPort        int                    `json:"http_port"`
 	MySQLPort       int                    `json:"mysql_port"`
+	Env             string                 `json:"env,omitempty"` // Environment (development, production, etc)
 }
 
 // NewConfig creates a new configuration with default values
@@ -53,6 +54,10 @@ func NewConfig() *Config {
 
 // LoadFromEnv loads configuration from environment variables
 func (c *Config) LoadFromEnv() error {
+   // Environment
+   if env := os.Getenv("ENV"); env != "" {
+	   c.Env = env
+   }
 	// HTTP Port
 	if port := os.Getenv("HTTP_PORT"); port != "" {
 		if p, err := strconv.Atoi(port); err == nil {
@@ -136,7 +141,7 @@ func (c *Config) LoadFromEnv() error {
 			c.DefaultDatabase = &DefaultDatabaseConfig{}
 		}
 		c.DefaultDatabase.ConnectionString = connStr
-		
+
 		// Try to detect type from connection string
 		if strings.HasPrefix(connStr, "mysql://") || strings.Contains(connStr, "@tcp(") {
 			c.DefaultDatabase.Type = DatabaseTypeMySQL
@@ -176,13 +181,13 @@ func (dbc *DefaultDatabaseConfig) BuildMySQLConnectionString() (string, error) {
 
 	// Build DSN in the format: user:password@tcp(host:port)/database?params
 	dsn := fmt.Sprintf("%s", dbc.MySQLUser)
-	
+
 	if dbc.MySQLPassword != "" {
 		dsn += ":" + dbc.MySQLPassword
 	}
-	
+
 	dsn += fmt.Sprintf("@tcp(%s:%d)", host, port)
-	
+
 	if dbc.MySQLDatabase != "" {
 		dsn += "/" + dbc.MySQLDatabase
 	} else {
