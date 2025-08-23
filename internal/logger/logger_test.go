@@ -69,12 +69,12 @@ func TestSetup_InvalidPath(t *testing.T) {
 func TestSetup_Prefix(t *testing.T) {
 	// Capture stdout to test the prefix
 	var buf bytes.Buffer
-	logger := log.New(&buf, "[MULTITENANT-DB] ", log.LstdFlags|log.Lshortfile)
+	logger := log.New(&buf, "[MULTI-TENANT-DB] ", log.LstdFlags|log.Lshortfile)
 	
 	logger.Println("Test prefix message")
 	
 	output := buf.String()
-	if !strings.Contains(output, "[MULTITENANT-DB]") {
+	if !strings.Contains(output, "[MULTI-TENANT-DB]") {
 		t.Error("Logger output should contain the correct prefix")
 	}
 	if !strings.Contains(output, "Test prefix message") {
@@ -84,7 +84,7 @@ func TestSetup_Prefix(t *testing.T) {
 
 func TestSetup_LogFormat(t *testing.T) {
 	var buf bytes.Buffer
-	logger := log.New(&buf, "[MULTITENANT-DB] ", log.LstdFlags|log.Lshortfile)
+	logger := log.New(&buf, "[MULTI-TENANT-DB] ", log.LstdFlags|log.Lshortfile)
 	
 	logger.Println("Format test message")
 	
@@ -244,7 +244,7 @@ func TestSetup_ExistingFile(t *testing.T) {
 	if !strings.Contains(contentStr, "New log message") {
 		t.Error("Log file should contain new message")
 	}
-	if !strings.Contains(contentStr, "[MULTITENANT-DB]") {
+	if !strings.Contains(contentStr, "[MULTI-TENANT-DB]") {
 		t.Error("New log message should have correct prefix")
 	}
 }

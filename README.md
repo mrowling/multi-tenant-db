@@ -311,9 +311,9 @@ func (qh *QueryHandlers) HandleCustomCommand(query string) (*mysql.Result, error
 
 Application logs include tenant context:
 ```
-[MULTITENANT-DB] [idx=customer123] Executing query: SELECT * FROM users
-[MULTITENANT-DB] [idx=prod] Database created for idx: prod
-[MULTITENANT-DB] [idx=dev] Set user variable: @idx = dev
+[MULTI-TENANT-DB] [idx=customer123] Executing query: SELECT * FROM users
+[MULTI-TENANT-DB] [idx=prod] Database created for idx: prod
+[MULTI-TENANT-DB] [idx=dev] Set user variable: @idx = dev
 ```
 
 Logs are written to:

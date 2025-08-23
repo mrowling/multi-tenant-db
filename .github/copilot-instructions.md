@@ -99,7 +99,7 @@ type DatabaseManagerAdapter struct {
 ```go
 // Pattern used throughout - logs include [idx=tenant] prefix
 h.logWithIdx("Message with tenant context")
-// Outputs: [MULTITENANT-DB] [idx=customer123] Message with tenant context
+// Outputs: [MULTI-TENANT-DB] [idx=customer123] Message with tenant context
 ```
 
 ## Thread Safety & Concurrency

@@ -112,7 +112,7 @@ multitenant-db/
 ### `logger/` Package - Centralized Logging
 - **Multi-Output Logging**: Console + file output
 - **Structured Logging**: Timestamps, log levels, source file information
-- **Application Prefix**: `[MULTITENANT-DB]` for easy log filtering
+- **Application Prefix**: `[MULTI-TENANT-DB]` for easy log filtering
 
 ## Data Flow
 

@@ -23,12 +23,12 @@ func Setup() *log.Logger {
 	multiWriter := io.MultiWriter(os.Stdout, logFile)
 	
 	// Create logger that writes to both file and console
-	logger := log.New(multiWriter, "[MULTITENANT-DB] ", log.Ldate|log.Ltime|log.Lshortfile)
+	logger := log.New(multiWriter, "[MULTI-TENANT-DB] ", log.Ldate|log.Ltime|log.Lshortfile)
 	
 	// Also configure the default logger to use the same format and multi-writer
 	log.SetOutput(multiWriter)
 	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
-	log.SetPrefix("[MULTITENANT-DB] ")
+	log.SetPrefix("[MULTI-TENANT-DB] ")
 	
 	return logger
 }
