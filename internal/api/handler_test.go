@@ -166,7 +166,7 @@ func TestHandler_InfoHandler(t *testing.T) {
 	}
 }
 
-func TestHandler_ListDatabasesHandler(t *testing.T) {
+func TestHandler_DatabasesHandler_List(t *testing.T) {
 	logger := log.New(os.Stdout, "[TEST] ", log.LstdFlags)
 	mockDB := NewMockDatabaseManager()
 	handler := NewHandler(logger, mockDB)
@@ -177,7 +177,7 @@ func TestHandler_ListDatabasesHandler(t *testing.T) {
 	}
 
 	rr := httptest.NewRecorder()
-	http.HandlerFunc(handler.ListDatabasesHandler).ServeHTTP(rr, req)
+	http.HandlerFunc(handler.DatabasesHandler).ServeHTTP(rr, req)
 
 	if status := rr.Code; status != http.StatusOK {
 		t.Errorf("List databases handler returned wrong status code: got %v want %v",
@@ -211,7 +211,7 @@ func TestHandler_ListDatabasesHandler(t *testing.T) {
 	}
 }
 
-func TestHandler_CreateDatabaseHandler(t *testing.T) {
+func TestHandler_DatabasesHandler_Create(t *testing.T) {
 	logger := log.New(os.Stdout, "[TEST] ", log.LstdFlags)
 	mockDB := NewMockDatabaseManager()
 	handler := NewHandler(logger, mockDB)
@@ -220,14 +220,14 @@ func TestHandler_CreateDatabaseHandler(t *testing.T) {
 	requestBody := CreateDatabaseRequest{Idx: "new_test_db"}
 	jsonBody, _ := json.Marshal(requestBody)
 
-	req, err := http.NewRequest("POST", "/api/databases/create", bytes.NewBuffer(jsonBody))
+	req, err := http.NewRequest("POST", "/api/databases", bytes.NewBuffer(jsonBody))
 	if err != nil {
 		t.Fatal(err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	rr := httptest.NewRecorder()
-	http.HandlerFunc(handler.CreateDatabaseHandler).ServeHTTP(rr, req)
+	http.HandlerFunc(handler.DatabasesHandler).ServeHTTP(rr, req)
 
 	if status := rr.Code; status != http.StatusCreated {
 		t.Errorf("Create database handler returned wrong status code: got %v want %v",
@@ -249,7 +249,7 @@ func TestHandler_CreateDatabaseHandler(t *testing.T) {
 	}
 }
 
-func TestHandler_CreateDatabaseHandler_EmptyIdx(t *testing.T) {
+func TestHandler_DatabasesHandler_EmptyIdx(t *testing.T) {
 	logger := log.New(os.Stdout, "[TEST] ", log.LstdFlags)
 	mockDB := NewMockDatabaseManager()
 	handler := NewHandler(logger, mockDB)
@@ -258,14 +258,14 @@ func TestHandler_CreateDatabaseHandler_EmptyIdx(t *testing.T) {
 	requestBody := CreateDatabaseRequest{Idx: ""}
 	jsonBody, _ := json.Marshal(requestBody)
 
-	req, err := http.NewRequest("POST", "/api/databases/create", bytes.NewBuffer(jsonBody))
+	req, err := http.NewRequest("POST", "/api/databases", bytes.NewBuffer(jsonBody))
 	if err != nil {
 		t.Fatal(err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	rr := httptest.NewRecorder()
-	http.HandlerFunc(handler.CreateDatabaseHandler).ServeHTTP(rr, req)
+	http.HandlerFunc(handler.DatabasesHandler).ServeHTTP(rr, req)
 
 	if status := rr.Code; status != http.StatusBadRequest {
 		t.Errorf("Create database handler should return bad request for empty idx: got %v want %v",
@@ -273,20 +273,20 @@ func TestHandler_CreateDatabaseHandler_EmptyIdx(t *testing.T) {
 	}
 }
 
-func TestHandler_CreateDatabaseHandler_InvalidJSON(t *testing.T) {
+func TestHandler_DatabasesHandler_InvalidJSON(t *testing.T) {
 	logger := log.New(os.Stdout, "[TEST] ", log.LstdFlags)
 	mockDB := NewMockDatabaseManager()
 	handler := NewHandler(logger, mockDB)
 
 	// Test with invalid JSON
-	req, err := http.NewRequest("POST", "/api/databases/create", bytes.NewBuffer([]byte("invalid json")))
+	req, err := http.NewRequest("POST", "/api/databases", bytes.NewBuffer([]byte("invalid json")))
 	if err != nil {
 		t.Fatal(err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	rr := httptest.NewRecorder()
-	http.HandlerFunc(handler.CreateDatabaseHandler).ServeHTTP(rr, req)
+	http.HandlerFunc(handler.DatabasesHandler).ServeHTTP(rr, req)
 
 	if status := rr.Code; status != http.StatusBadRequest {
 		t.Errorf("Create database handler should return bad request for invalid JSON: got %v want %v",
@@ -294,7 +294,7 @@ func TestHandler_CreateDatabaseHandler_InvalidJSON(t *testing.T) {
 	}
 }
 
-func TestHandler_CreateDatabaseHandler_DatabaseError(t *testing.T) {
+func TestHandler_DatabasesHandler_DatabaseError(t *testing.T) {
 	logger := log.New(os.Stdout, "[TEST] ", log.LstdFlags)
 	mockDB := NewMockDatabaseManager()
 	handler := NewHandler(logger, mockDB)
@@ -303,14 +303,14 @@ func TestHandler_CreateDatabaseHandler_DatabaseError(t *testing.T) {
 	requestBody := CreateDatabaseRequest{Idx: "error_test"}
 	jsonBody, _ := json.Marshal(requestBody)
 
-	req, err := http.NewRequest("POST", "/api/databases/create", bytes.NewBuffer(jsonBody))
+	req, err := http.NewRequest("POST", "/api/databases", bytes.NewBuffer(jsonBody))
 	if err != nil {
 		t.Fatal(err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	rr := httptest.NewRecorder()
-	http.HandlerFunc(handler.CreateDatabaseHandler).ServeHTTP(rr, req)
+	http.HandlerFunc(handler.DatabasesHandler).ServeHTTP(rr, req)
 
 	if status := rr.Code; status != http.StatusInternalServerError {
 		t.Errorf("Create database handler should return internal server error for database error: got %v want %v",
@@ -318,19 +318,19 @@ func TestHandler_CreateDatabaseHandler_DatabaseError(t *testing.T) {
 	}
 }
 
-func TestHandler_DeleteDatabaseHandler(t *testing.T) {
+func TestHandler_DatabasesHandler_Delete(t *testing.T) {
 	logger := log.New(os.Stdout, "[TEST] ", log.LstdFlags)
 	mockDB := NewMockDatabaseManager()
 	handler := NewHandler(logger, mockDB)
 
 	// Test successful deletion
-	req, err := http.NewRequest("DELETE", "/api/databases/delete?idx=test1", nil)
+	req, err := http.NewRequest("DELETE", "/api/databases?idx=test1", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	rr := httptest.NewRecorder()
-	http.HandlerFunc(handler.DeleteDatabaseHandler).ServeHTTP(rr, req)
+	http.HandlerFunc(handler.DatabasesHandler).ServeHTTP(rr, req)
 
 	if status := rr.Code; status != http.StatusOK {
 		t.Errorf("Delete database handler returned wrong status code: got %v want %v",
@@ -352,19 +352,19 @@ func TestHandler_DeleteDatabaseHandler(t *testing.T) {
 	}
 }
 
-func TestHandler_DeleteDatabaseHandler_MissingIdx(t *testing.T) {
+func TestHandler_DatabasesHandler_MissingIdx(t *testing.T) {
 	logger := log.New(os.Stdout, "[TEST] ", log.LstdFlags)
 	mockDB := NewMockDatabaseManager()
 	handler := NewHandler(logger, mockDB)
 
 	// Test without idx parameter
-	req, err := http.NewRequest("DELETE", "/api/databases/delete", nil)
+	req, err := http.NewRequest("DELETE", "/api/databases", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	rr := httptest.NewRecorder()
-	http.HandlerFunc(handler.DeleteDatabaseHandler).ServeHTTP(rr, req)
+	http.HandlerFunc(handler.DatabasesHandler).ServeHTTP(rr, req)
 
 	if status := rr.Code; status != http.StatusBadRequest {
 		t.Errorf("Delete database handler should return bad request for missing idx: got %v want %v",
@@ -372,19 +372,19 @@ func TestHandler_DeleteDatabaseHandler_MissingIdx(t *testing.T) {
 	}
 }
 
-func TestHandler_DeleteDatabaseHandler_DefaultDatabase(t *testing.T) {
+func TestHandler_DatabasesHandler_DefaultDatabase(t *testing.T) {
 	logger := log.New(os.Stdout, "[TEST] ", log.LstdFlags)
 	mockDB := NewMockDatabaseManager()
 	handler := NewHandler(logger, mockDB)
 
 	// Test trying to delete default database
-	req, err := http.NewRequest("DELETE", "/api/databases/delete?idx=default", nil)
+	req, err := http.NewRequest("DELETE", "/api/databases?idx=default", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	rr := httptest.NewRecorder()
-	http.HandlerFunc(handler.DeleteDatabaseHandler).ServeHTTP(rr, req)
+	http.HandlerFunc(handler.DatabasesHandler).ServeHTTP(rr, req)
 
 	if status := rr.Code; status != http.StatusBadRequest {
 		t.Errorf("Delete database handler should return bad request for default database: got %v want %v",
@@ -392,19 +392,19 @@ func TestHandler_DeleteDatabaseHandler_DefaultDatabase(t *testing.T) {
 	}
 }
 
-func TestHandler_DeleteDatabaseHandler_DatabaseError(t *testing.T) {
+func TestHandler_DatabasesHandler_DeleteError(t *testing.T) {
 	logger := log.New(os.Stdout, "[TEST] ", log.LstdFlags)
 	mockDB := NewMockDatabaseManager()
 	handler := NewHandler(logger, mockDB)
 
 	// Test with idx that triggers error in mock
-	req, err := http.NewRequest("DELETE", "/api/databases/delete?idx=error_test", nil)
+	req, err := http.NewRequest("DELETE", "/api/databases?idx=error_test", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	rr := httptest.NewRecorder()
-	http.HandlerFunc(handler.DeleteDatabaseHandler).ServeHTTP(rr, req)
+	http.HandlerFunc(handler.DatabasesHandler).ServeHTTP(rr, req)
 
 	if status := rr.Code; status != http.StatusInternalServerError {
 		t.Errorf("Delete database handler should return internal server error for database error: got %v want %v",
@@ -445,7 +445,7 @@ func TestHandler_MethodNotAllowed(t *testing.T) {
 	handler := NewHandler(logger, mockDB)
 
 	// Test GET to create endpoint (should be POST only)
-	req, err := http.NewRequest("GET", "/api/databases/create", nil)
+	req, err := http.NewRequest("GET", "/api/databases", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -465,7 +465,7 @@ func TestHandler_MethodNotAllowed(t *testing.T) {
 	}
 
 	rr = httptest.NewRecorder()
-	http.HandlerFunc(handler.ListDatabasesHandler).ServeHTTP(rr, req)
+	http.HandlerFunc(handler.DatabasesHandler).ServeHTTP(rr, req)
 
 	if status := rr.Code; status != http.StatusMethodNotAllowed {
 		t.Errorf("List databases handler should return method not allowed for POST: got %v want %v",
@@ -495,34 +495,34 @@ func TestHandler_ConcurrentRequests(t *testing.T) {
 		}()
 	}
 
-	// Concurrent database lists
-	for i := 0; i < numRequests; i++ {
-		go func() {
-			req, _ := http.NewRequest("GET", "/api/databases", nil)
-			rr := httptest.NewRecorder()
-			http.HandlerFunc(handler.ListDatabasesHandler).ServeHTTP(rr, req)
-			if rr.Code != http.StatusOK {
-				t.Errorf("Concurrent database list failed with status %d", rr.Code)
-			}
-			done <- true
-		}()
-	}
+       // Concurrent database lists
+       for i := 0; i < numRequests; i++ {
+	       go func() {
+		       req, _ := http.NewRequest("GET", "/api/databases", nil)
+		       rr := httptest.NewRecorder()
+		       http.HandlerFunc(handler.DatabasesHandler).ServeHTTP(rr, req)
+		       if rr.Code != http.StatusOK {
+			       t.Errorf("Concurrent database list failed with status %d", rr.Code)
+		       }
+		       done <- true
+	       }()
+       }
 
-	// Concurrent database creations
-	for i := 0; i < numRequests; i++ {
-		go func(i int) {
-			requestBody := CreateDatabaseRequest{Idx: fmt.Sprintf("concurrent_%d", i)}
-			jsonBody, _ := json.Marshal(requestBody)
-			req, _ := http.NewRequest("POST", "/api/databases/create", bytes.NewBuffer(jsonBody))
-			req.Header.Set("Content-Type", "application/json")
-			rr := httptest.NewRecorder()
-			http.HandlerFunc(handler.CreateDatabaseHandler).ServeHTTP(rr, req)
-			if rr.Code != http.StatusCreated {
-				t.Errorf("Concurrent database creation failed with status %d", rr.Code)
-			}
-			done <- true
-		}(i)
-	}
+       // Concurrent database creations
+       for i := 0; i < numRequests; i++ {
+	       go func(i int) {
+		       requestBody := CreateDatabaseRequest{Idx: fmt.Sprintf("concurrent_%d", i)}
+		       jsonBody, _ := json.Marshal(requestBody)
+		       req, _ := http.NewRequest("POST", "/api/databases", bytes.NewBuffer(jsonBody))
+		       req.Header.Set("Content-Type", "application/json")
+		       rr := httptest.NewRecorder()
+		       http.HandlerFunc(handler.DatabasesHandler).ServeHTTP(rr, req)
+		       if rr.Code != http.StatusCreated {
+			       t.Errorf("Concurrent database creation failed with status %d", rr.Code)
+		       }
+		       done <- true
+	       }(i)
+       }
 
 	// Wait for all requests to complete
 	for i := 0; i < numRequests*3; i++ {

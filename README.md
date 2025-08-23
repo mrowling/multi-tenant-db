@@ -186,9 +186,10 @@ Each tenant database is initialized with sample tables:
 - `GET /api/info` - API information and connection details
 
 ### Database Management
-- `GET /api/databases` - List all tenant databases
-- `POST /api/databases/create` - Create new tenant database
-- `DELETE /api/databases/delete?idx=<tenant_id>` - Delete tenant database
+- `/api/databases` - Database management endpoint:
+  - `GET`    - List all tenant databases
+  - `POST`   - Create a new tenant database
+  - `DELETE` - Delete a tenant database (use `?idx=<tenant_id>` query parameter)
 
 ## 💾 Session and Variable Management
 

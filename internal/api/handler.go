@@ -1,3 +1,105 @@
+// DatabasesHandler handles GET, POST, DELETE for /api/databases
+func (h *Handler) DatabasesHandler(w http.ResponseWriter, r *http.Request) {
+       switch r.Method {
+       case http.MethodGet:
+	       databases := h.dbManager.ListDatabases()
+	       var dbInfos []DatabaseInfo
+	       for _, idx := range databases {
+		       var name string
+		       if idx == "" || idx == "default" {
+			       name = "multitenant_db"
+		       } else {
+			       name = "multitenant_db_idx_" + idx
+		       }
+		       dbInfos = append(dbInfos, DatabaseInfo{
+			       Name: name,
+			       Idx:  idx,
+		       })
+	       }
+	       response := DatabaseResponse{
+		       Databases: dbInfos,
+		       Status:    "ok",
+		       Timestamp: time.Now(),
+	       }
+	       w.Header().Set("Content-Type", "application/json")
+	       w.WriteHeader(http.StatusOK)
+	       if err := json.NewEncoder(w).Encode(response); err != nil {
+		       h.logger.Printf("Error encoding databases response: %v", err)
+		       http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		       return
+	       }
+	       h.logger.Printf("Databases listed for %s", r.RemoteAddr)
+       case http.MethodPost:
+	       var req CreateDatabaseRequest
+	       if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		       http.Error(w, "Invalid JSON request", http.StatusBadRequest)
+		       return
+	       }
+	       if req.Idx == "" {
+		       http.Error(w, "idx field is required", http.StatusBadRequest)
+		       return
+	       }
+	       _, err := h.dbManager.GetOrCreateDatabase(req.Idx)
+	       if err != nil {
+		       h.logger.Printf("Error creating database for idx %s: %v", req.Idx, err)
+		       http.Error(w, "Failed to create database", http.StatusInternalServerError)
+		       return
+	       }
+	       var name string
+	       if req.Idx == "default" {
+		       name = "multitenant_db"
+	       } else {
+		       name = "multitenant_db_idx_" + req.Idx
+	       }
+	       response := map[string]interface{}{
+		       "message":   "Database created successfully",
+		       "status":    "ok",
+		       "database":  name,
+		       "idx":       req.Idx,
+		       "timestamp": time.Now(),
+	       }
+	       w.Header().Set("Content-Type", "application/json")
+	       w.WriteHeader(http.StatusCreated)
+	       if err := json.NewEncoder(w).Encode(response); err != nil {
+		       h.logger.Printf("Error encoding create database response: %v", err)
+		       http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		       return
+	       }
+	       h.logger.Printf("Database created for idx %s from %s", req.Idx, r.RemoteAddr)
+       case http.MethodDelete:
+	       idx := r.URL.Query().Get("idx")
+	       if idx == "" {
+		       http.Error(w, "idx query parameter is required", http.StatusBadRequest)
+		       return
+	       }
+	       if idx == "default" {
+		       http.Error(w, "Cannot delete default database", http.StatusBadRequest)
+		       return
+	       }
+	       err := h.dbManager.DeleteDatabase(idx)
+	       if err != nil {
+		       h.logger.Printf("Error deleting database for idx %s: %v", idx, err)
+		       http.Error(w, "Failed to delete database", http.StatusInternalServerError)
+		       return
+	       }
+	       response := map[string]interface{}{
+		       "message":   "Database deleted successfully",
+		       "status":    "ok",
+		       "idx":       idx,
+		       "timestamp": time.Now(),
+	       }
+	       w.Header().Set("Content-Type", "application/json")
+	       w.WriteHeader(http.StatusOK)
+	       if err := json.NewEncoder(w).Encode(response); err != nil {
+		       h.logger.Printf("Error encoding delete database response: %v", err)
+		       http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		       return
+	       }
+	       h.logger.Printf("Database deleted for idx %s from %s", idx, r.RemoteAddr)
+       default:
+	       http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+       }
+}
 package api
 
 import (
@@ -116,14 +218,14 @@ func (h *Handler) InfoHandler(w http.ResponseWriter, r *http.Request) {
 		"protocols": map[string]interface{}{
 			"http": map[string]interface{}{
 				"port": 8080,
-				"endpoints": []string{
-					"GET /",
-					"GET /health",
-					"GET /api/info",
-					"GET /api/databases",
-					"POST /api/databases/create",
-					"DELETE /api/databases/delete?idx=<idx>",
-				},
+			       "endpoints": []string{
+				       "GET /",
+				       "GET /health",
+				       "GET /api/info",
+				       "GET /api/databases",
+				       "POST /api/databases",
+				       "DELETE /api/databases?idx=<idx>",
+			       },
 			},
 			"mysql": map[string]interface{}{
 				"port":       3306,
@@ -170,142 +272,6 @@ func (h *Handler) InfoHandler(w http.ResponseWriter, r *http.Request) {
 	h.logger.Printf("API info requested from %s", r.RemoteAddr)
 }
 
-// ListDatabasesHandler lists all active databases
-func (h *Handler) ListDatabasesHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	databases := h.dbManager.ListDatabases()
-	var dbInfos []DatabaseInfo
-	
-	for _, idx := range databases {
-		var name string
-		if idx == "" || idx == "default" {
-			name = "multitenant_db"
-		} else {
-			name = "multitenant_db_idx_" + idx
-		}
-		dbInfos = append(dbInfos, DatabaseInfo{
-			Name: name,
-			Idx:  idx,
-		})
-	}
-
-	response := DatabaseResponse{
-		Databases: dbInfos,
-		Status:    "ok",
-		Timestamp: time.Now(),
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		h.logger.Printf("Error encoding databases response: %v", err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
-	}
-
-	h.logger.Printf("Databases listed for %s", r.RemoteAddr)
-}
-
-// CreateDatabaseHandler creates a new database for a specific idx
-func (h *Handler) CreateDatabaseHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	var req CreateDatabaseRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid JSON request", http.StatusBadRequest)
-		return
-	}
-
-	if req.Idx == "" {
-		http.Error(w, "idx field is required", http.StatusBadRequest)
-		return
-	}
-
-	_, err := h.dbManager.GetOrCreateDatabase(req.Idx)
-	if err != nil {
-		h.logger.Printf("Error creating database for idx %s: %v", req.Idx, err)
-		http.Error(w, "Failed to create database", http.StatusInternalServerError)
-		return
-	}
-
-	var name string
-	if req.Idx == "default" {
-		name = "multitenant_db"
-	} else {
-		name = "multitenant_db_idx_" + req.Idx
-	}
-
-	response := map[string]interface{}{
-		"message":   "Database created successfully",
-		"status":    "ok",
-		"database":  name,
-		"idx":       req.Idx,
-		"timestamp": time.Now(),
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		h.logger.Printf("Error encoding create database response: %v", err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
-	}
-
-	h.logger.Printf("Database created for idx %s from %s", req.Idx, r.RemoteAddr)
-}
-
-// DeleteDatabaseHandler deletes a database for a specific idx
-func (h *Handler) DeleteDatabaseHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodDelete {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	idx := r.URL.Query().Get("idx")
-	if idx == "" {
-		http.Error(w, "idx query parameter is required", http.StatusBadRequest)
-		return
-	}
-
-	if idx == "default" {
-		http.Error(w, "Cannot delete default database", http.StatusBadRequest)
-		return
-	}
-
-	err := h.dbManager.DeleteDatabase(idx)
-	if err != nil {
-		h.logger.Printf("Error deleting database for idx %s: %v", idx, err)
-		http.Error(w, "Failed to delete database", http.StatusInternalServerError)
-		return
-	}
-
-	response := map[string]interface{}{
-		"message":   "Database deleted successfully",
-		"status":    "ok",
-		"idx":       idx,
-		"timestamp": time.Now(),
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		h.logger.Printf("Error encoding delete database response: %v", err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
-	}
-
-	h.logger.Printf("Database deleted for idx %s from %s", idx, r.RemoteAddr)
-}
 
 // SetupRoutes configures the HTTP routes
 func (h *Handler) SetupRoutes() *http.ServeMux {
@@ -315,9 +281,7 @@ func (h *Handler) SetupRoutes() *http.ServeMux {
 	mux.HandleFunc("/", h.RootHandler)
 	mux.HandleFunc("/health", h.HealthHandler)
 	mux.HandleFunc("/api/info", h.InfoHandler)
-	mux.HandleFunc("/api/databases", h.ListDatabasesHandler)
-	mux.HandleFunc("/api/databases/create", h.CreateDatabaseHandler)
-	mux.HandleFunc("/api/databases/delete", h.DeleteDatabaseHandler)
+	mux.HandleFunc("/api/databases", h.DatabasesHandler)
 	
 	return mux
 }
