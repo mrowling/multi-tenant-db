@@ -1,0 +1,50 @@
+version: '3'
+
+tasks:
+  test:
+    desc: Run all tests
+    cmds:
+      - go test -v ./...
+
+  coverage:
+    desc: Run tests with coverage and generate lcov.info
+    cmds:
+      - echo "Running tests with coverage..."
+      - go test -coverprofile=coverage.out ./...
+      - echo "Converting coverage to lcov format..."
+      - gcov2lcov -infile=coverage.out -outfile=lcov.info
+      - echo "Coverage summary:"
+      - go tool cover -func=coverage.out | grep total
+      - echo "✅ Coverage files generated (coverage.out, lcov.info)"
+
+  coverage-html:
+    desc: Run tests with coverage and open HTML report
+    deps: [coverage]
+    cmds:
+      - go tool cover -html=coverage.out -o coverage.html
+      - echo "Opening coverage.html..."
+      - cmd: open coverage.html
+        platforms: [darwin]
+      - cmd: xdg-open coverage.html
+        platforms: [linux]
+
+  build:
+    desc: Build the application
+    cmds:
+      - go build -o multitenant-db .
+
+  run:
+    desc: Build and run the application
+    deps: [build]
+    cmds:
+      - ./multitenant-db
+
+  clean:
+    desc: Clean build artifacts and coverage files
+    cmds:
+      - rm -f multitenant-db ephemeral-db coverage.out lcov.info coverage.html
+
+  install-tools:
+    desc: Install required development tools
+    cmds:
+      - go install github.com/jandelgado/gcov2lcov@latest

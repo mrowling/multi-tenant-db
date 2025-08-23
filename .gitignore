@@ -61,3 +61,4 @@ config.json
 coverage.txt
 coverage.html
 coverage.out
+lcov.info
