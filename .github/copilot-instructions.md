@@ -148,4 +148,9 @@ export DEFAULT_DB_MYSQL_HOST=db.example.com
 
 When you have fully completed your task, write me a commit message.
 
-Also propose three new ideas for my application, or on what you should do next.
+Also propose three new ideas for my application, or on what you should do next. 
+
+The ideas should either:
+    - Make the codebase easier to work with
+    - Introduce a new tool to increase developer productivity
+    - Add a new feature or enhancement to the application
