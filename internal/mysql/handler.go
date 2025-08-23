@@ -35,17 +35,14 @@ func (h *Handler) GetDatabaseManager() *DatabaseManager {
 	return h.databaseManager
 }
 
-// logWithIdx formats a log message including the "idx" session variable if set
+// logWithIdx formats a log message including the "idx" user variable if set
 func (h *Handler) logWithIdx(format string, args ...interface{}) {
 	connID := h.sessionManager.GetCurrentConnection()
 	session := h.sessionManager.GetOrCreateSession(connID)
 	
 	var prefix string
-	// Check for user variable @idx first
+	// Check for user-defined session variable @idx
 	if idxVar, exists := session.GetUser("idx"); exists && idxVar != nil {
-		prefix = fmt.Sprintf("[idx=%v] ", idxVar)
-	} else if idxVar, exists := session.Get("idx"); exists && idxVar != nil {
-		// Fall back to session variable @@idx
 		prefix = fmt.Sprintf("[idx=%v] ", idxVar)
 	}
 	
@@ -77,9 +74,9 @@ func (h *Handler) HandleQuery(query string) (*mysql.Result, error) {
 		return h.queryHandlers.HandleShowVariables()
 	case strings.HasPrefix(queryLower, "describe ") || strings.HasPrefix(queryLower, "desc "):
 		return h.queryHandlers.HandleDescribe(query)
-	case strings.HasPrefix(queryLower, "set ") && (strings.Contains(queryLower, "@") || strings.Contains(queryLower, "@@")):
+	case strings.HasPrefix(queryLower, "set ") && strings.Contains(queryLower, "@"):
 		return h.queryHandlers.HandleSet(query)
-	case strings.Contains(queryLower, "@@") || (strings.Contains(queryLower, "@") && strings.HasPrefix(queryLower, "select")):
+	case strings.Contains(queryLower, "@") && strings.HasPrefix(queryLower, "select"):
 		return h.queryHandlers.HandleSelectVariable(query)
 	default:
 		// Let SQLite handle everything else
@@ -303,8 +300,6 @@ func StartServer(port int, handler *Handler) error {
 				if session := handler.sessionManager.GetOrCreateSession(connID); session != nil {
 					if idxVar, hasIdx := session.GetUser("idx"); hasIdx && idxVar != nil {
 						idxContext = fmt.Sprintf("[idx=%v] ", idxVar)
-					} else if idxVar, hasIdx := session.Get("idx"); hasIdx && idxVar != nil {
-						idxContext = fmt.Sprintf("[idx=%v] ", idxVar)
 					}
 				}
 				
@@ -318,8 +313,6 @@ func StartServer(port int, handler *Handler) error {
 					// For connection errors, we can try to get idx context
 					if session := handler.sessionManager.GetOrCreateSession(connID); session != nil {
 						if idxVar, hasIdx := session.GetUser("idx"); hasIdx && idxVar != nil {
-							handler.logger.Printf("[idx=%v] MySQL connection error [conn=%d]: %v", idxVar, connID, err)
-						} else if idxVar, hasIdx := session.Get("idx"); hasIdx && idxVar != nil {
 							handler.logger.Printf("[idx=%v] MySQL connection error [conn=%d]: %v", idxVar, connID, err)
 						} else {
 							handler.logger.Printf("MySQL connection error [conn=%d]: %v", connID, err)

@@ -86,13 +86,6 @@ func TestDatabaseManager_GetDatabaseForSession(t *testing.T) {
 		t.Errorf("Should be able to get database for session with user idx: %v", err)
 	}
 
-	// Test with session variable idx set (should override user variable)
-	session.Set("idx", "session_test")
-	_, err = dm.GetDatabaseForSession(session)
-	if err != nil {
-		t.Errorf("Should be able to get database for session with session idx: %v", err)
-	}
-
 	// Verify different databases are returned for different idx values
 	if db == db2 {
 		t.Error("Different idx values should return different databases")

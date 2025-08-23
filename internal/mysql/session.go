@@ -7,37 +7,15 @@ import (
 
 // SessionVariables holds session-specific variables
 type SessionVariables struct {
-	sessionVars map[string]interface{} // @@variables
-	userVars    map[string]interface{} // @variables
-	mu          sync.RWMutex
+	userVars map[string]interface{} // @variables (user-defined session variables)
+	mu       sync.RWMutex
 }
 
-// NewSessionVariables creates a new session variables instance with defaults
+// NewSessionVariables creates a new session variables instance
 func NewSessionVariables() *SessionVariables {
-	sv := &SessionVariables{
-		sessionVars: make(map[string]interface{}),
-		userVars:    make(map[string]interface{}),
+	return &SessionVariables{
+		userVars: make(map[string]interface{}),
 	}
-	
-	// Set default session variables
-	sv.sessionVars["autocommit"] = 1
-	sv.sessionVars["sql_mode"] = ""
-	sv.sessionVars["character_set_client"] = "utf8mb4"
-	sv.sessionVars["character_set_connection"] = "utf8mb4"
-	sv.sessionVars["character_set_results"] = "utf8mb4"
-	sv.sessionVars["collation_connection"] = "utf8mb4_general_ci"
-	sv.sessionVars["time_zone"] = "SYSTEM"
-	sv.sessionVars["tx_isolation"] = "REPEATABLE-READ"
-	sv.sessionVars["version_comment"] = "Multitenant DB"
-	
-	return sv
-}
-
-// Set sets a session variable
-func (sv *SessionVariables) Set(name string, value interface{}) {
-	sv.mu.Lock()
-	defer sv.mu.Unlock()
-	sv.sessionVars[strings.ToLower(name)] = value
 }
 
 // SetUser sets a user-defined variable
@@ -45,14 +23,6 @@ func (sv *SessionVariables) SetUser(name string, value interface{}) {
 	sv.mu.Lock()
 	defer sv.mu.Unlock()
 	sv.userVars[strings.ToLower(name)] = value
-}
-
-// Get gets a session variable
-func (sv *SessionVariables) Get(name string) (interface{}, bool) {
-	sv.mu.RLock()
-	defer sv.mu.RUnlock()
-	val, exists := sv.sessionVars[strings.ToLower(name)]
-	return val, exists
 }
 
 // GetUser gets a user-defined variable
@@ -70,20 +40,13 @@ func (sv *SessionVariables) UnsetUser(name string) {
 	delete(sv.userVars, strings.ToLower(name))
 }
 
-// Unset removes a session variable
-func (sv *SessionVariables) Unset(name string) {
-	sv.mu.Lock()
-	defer sv.mu.Unlock()
-	delete(sv.sessionVars, strings.ToLower(name))
-}
-
-// GetAll returns all session variables
-func (sv *SessionVariables) GetAll() map[string]interface{} {
+// GetAllUser returns all user-defined variables
+func (sv *SessionVariables) GetAllUser() map[string]interface{} {
 	sv.mu.RLock()
 	defer sv.mu.RUnlock()
 	
 	result := make(map[string]interface{})
-	for k, v := range sv.sessionVars {
+	for k, v := range sv.userVars {
 		result[k] = v
 	}
 	return result

@@ -444,22 +444,22 @@ func TestHandler_MethodNotAllowed(t *testing.T) {
 	mockDB := NewMockDatabaseManager()
 	handler := NewHandler(logger, mockDB)
 
-	// Test GET to create endpoint (should be POST only)
-	req, err := http.NewRequest("GET", "/api/databases", nil)
+	// Test PATCH to unified endpoint (should not be supported)
+	req, err := http.NewRequest("PATCH", "/api/databases", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	rr := httptest.NewRecorder()
-	http.HandlerFunc(handler.CreateDatabaseHandler).ServeHTTP(rr, req)
+	http.HandlerFunc(handler.DatabasesHandler).ServeHTTP(rr, req)
 
 	if status := rr.Code; status != http.StatusMethodNotAllowed {
-		t.Errorf("Create database handler should return method not allowed for GET: got %v want %v",
+		t.Errorf("Database handler should return method not allowed for PATCH: got %v want %v",
 			status, http.StatusMethodNotAllowed)
 	}
 
-	// Test POST to list endpoint (should be GET only)
-	req, err = http.NewRequest("POST", "/api/databases", nil)
+	// Test PUT to unified endpoint (should not be supported)
+	req, err = http.NewRequest("PUT", "/api/databases", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -468,7 +468,7 @@ func TestHandler_MethodNotAllowed(t *testing.T) {
 	http.HandlerFunc(handler.DatabasesHandler).ServeHTTP(rr, req)
 
 	if status := rr.Code; status != http.StatusMethodNotAllowed {
-		t.Errorf("List databases handler should return method not allowed for POST: got %v want %v",
+		t.Errorf("Database handler should return method not allowed for PUT: got %v want %v",
 			status, http.StatusMethodNotAllowed)
 	}
 }

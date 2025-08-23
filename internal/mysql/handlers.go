@@ -179,26 +179,24 @@ func (qh *QueryHandlers) HandleDescribe(query string) (*mysql.Result, error) {
 	return mysql.NewResult(resultset), nil
 }
 
-// HandleSet handles SET commands for session variables and user-defined variables
+// HandleSet handles SET commands for user-defined session variables
 func (qh *QueryHandlers) HandleSet(query string) (*mysql.Result, error) {
 	// Get current session using the actual connection ID
 	connID := qh.handler.sessionManager.GetCurrentConnection()
 	session := qh.handler.sessionManager.GetOrCreateSession(connID)
 	
-	// Parse SET statement - support both session variables and user-defined variables
+	// Parse SET statement - support only user-defined session variables (@variables)
 	// Patterns to match:
-	// SET @@variable = value
 	// SET @variable = value  
-	// SET variable = value
 	// SET @variable := value
-	setRegex := regexp.MustCompile(`(?i)set\s+(?:session\s+)?(@{0,2})(\w+)\s*(:?=)\s*(.+)`)
+	setRegex := regexp.MustCompile(`(?i)set\s+(@)(\w+)\s*(:?=)\s*(.+)`)
 	matches := setRegex.FindStringSubmatch(query)
 	
 	if len(matches) != 5 {
 		return nil, fmt.Errorf("invalid SET syntax: %s", query)
 	}
 	
-	prefix := matches[1]
+	// prefix := matches[1] // @@ or @ prefix - we only care about @
 	varName := strings.ToLower(matches[2])
 	varValue := strings.Trim(matches[4], "\"'`")
 	
@@ -216,23 +214,13 @@ func (qh *QueryHandlers) HandleSet(query string) (*mysql.Result, error) {
 		value = varValue
 	}
 	
-	// Determine if it's a user variable (@) or session variable (@@)
-	if prefix == "@" {
-		if value == nil {
-			session.UnsetUser(varName)
-			qh.handler.logWithIdx("Unset user variable: @%s", varName)
-		} else {
-			session.SetUser(varName, value)
-			qh.handler.logWithIdx("Set user variable: @%s = %v", varName, value)
-		}
+	// Handle user-defined session variable (@)
+	if value == nil {
+		session.UnsetUser(varName)
+		qh.handler.logWithIdx("Unset user-defined session variable: @%s", varName)
 	} else {
-		if value == nil {
-			session.Unset(varName)
-			qh.handler.logWithIdx("Unset session variable: %s", varName)
-		} else {
-			session.Set(varName, value)
-			qh.handler.logWithIdx("Set session variable: %s = %v", varName, value)
-		}
+		session.SetUser(varName, value)
+		qh.handler.logWithIdx("Set user-defined session variable: @%s = %v", varName, value)
 	}
 	
 	// Return OK result
@@ -241,13 +229,13 @@ func (qh *QueryHandlers) HandleSet(query string) (*mysql.Result, error) {
 	return result, nil
 }
 
-// HandleSelectVariable handles SELECT @@variable and @variable queries
+// HandleSelectVariable handles SELECT @variable queries
 func (qh *QueryHandlers) HandleSelectVariable(query string) (*mysql.Result, error) {
 	connID := qh.handler.sessionManager.GetCurrentConnection()
 	session := qh.handler.sessionManager.GetOrCreateSession(connID)
 	
-	// Parse variable reference - support both session variables (@@) and user variables (@)
-	varRegex := regexp.MustCompile(`(@{1,2})(?:session\.)?(\w+)`)
+	// Parse variable reference - support only user-defined session variables (@)
+	varRegex := regexp.MustCompile(`(@)(?:session\.)?(\w+)`)
 	matches := varRegex.FindAllStringSubmatch(query, -1)
 	
 	if len(matches) == 0 {
@@ -259,49 +247,33 @@ func (qh *QueryHandlers) HandleSelectVariable(query string) (*mysql.Result, erro
 	
 	// Handle single variable
 	if len(matches) == 1 {
-		prefix := matches[0][1]
+		// prefix := matches[0][1] // @@ or @ prefix - we only care about @
 		varName := strings.ToLower(matches[0][2])
 		
 		var value interface{}
-		var exists bool
 		
-		if prefix == "@" {
-			// User-defined variable
-			value, exists = session.GetUser(varName)
-			if !exists {
-				value = nil // MySQL returns NULL for undefined user variables
-			}
-			names = []string{"@" + varName}
-		} else {
-			// Session variable
-			value, exists = session.Get(varName)
-			if !exists {
-				return nil, fmt.Errorf("unknown session variable: %s", varName)
-			}
-			names = []string{"@@" + varName}
+		// User-defined variable
+		value, exists := session.GetUser(varName)
+		if !exists {
+			value = nil // MySQL returns NULL for undefined user-defined session variables
 		}
+		names = []string{"@" + varName}
 		
 		values = [][]interface{}{{value}}
 	} else {
 		// Handle multiple variables
 		row := make([]interface{}, len(matches))
 		for i, match := range matches {
-			prefix := match[1]
+			// prefix := match[1] // @@ or @ prefix - we only care about @
 			varName := strings.ToLower(match[2])
 			
 			var value interface{}
-			if prefix == "@" {
-				// User-defined variable
-				value, _ = session.GetUser(varName)
-				if value == nil {
-					value = nil // MySQL returns NULL for undefined user variables
-				}
-				names = append(names, "@"+varName)
-			} else {
-				// Session variable
-				value, _ = session.Get(varName)
-				names = append(names, "@@"+varName)
+			// User-defined variable
+			value, _ = session.GetUser(varName)
+			if value == nil {
+				value = nil // MySQL returns NULL for undefined user-defined session variables
 			}
+			names = append(names, "@"+varName)
 			
 			row[i] = value
 		}
@@ -324,9 +296,9 @@ func (qh *QueryHandlers) HandleShowVariables() (*mysql.Result, error) {
 	names := []string{"Variable_name", "Value"}
 	var values [][]interface{}
 	
-	allVars := session.GetAll()
+	allVars := session.GetAllUser()
 	for varName, varValue := range allVars {
-		values = append(values, []interface{}{varName, varValue})
+		values = append(values, []interface{}{"@" + varName, varValue})
 	}
 	
 	resultset, err := mysql.BuildSimpleTextResultset(names, values)

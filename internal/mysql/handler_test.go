@@ -173,7 +173,6 @@ func TestHandler_HandleQuery_SetCommands(t *testing.T) {
 	// Test variable assignments that should work
 	workingCases := []string{
 		"SET @test_var = 'test_value'",
-		"SET @@autocommit = 1",
 		"set @idx = 'test_idx'",
 	}
 
@@ -215,12 +214,9 @@ func TestHandler_HandleQuery_SelectVariables(t *testing.T) {
 	
 	// Set some variables first
 	session.SetUser("test_var", "test_value")
-	session.Set("autocommit", 1)
 
 	testCases := []string{
 		"SELECT @test_var",
-		"SELECT @@autocommit",
-		"select @test_var, @@autocommit",
 	}
 
 	for _, query := range testCases {

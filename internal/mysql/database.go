@@ -67,11 +67,9 @@ func (dm *DatabaseManager) GetOrCreateDatabase(idx string) (*sql.DB, error) {
 
 // GetDatabaseForSession gets the database for a specific session
 func (dm *DatabaseManager) GetDatabaseForSession(session *SessionVariables) (*sql.DB, error) {
-	// Get idx from session (try user variable first, then session variable)
+	// Get idx from session (user-defined session variable @idx)
 	var idx string
 	if idxVar, exists := session.GetUser("idx"); exists && idxVar != nil {
-		idx = fmt.Sprintf("%v", idxVar)
-	} else if idxVar, exists := session.Get("idx"); exists && idxVar != nil {
 		idx = fmt.Sprintf("%v", idxVar)
 	}
 	

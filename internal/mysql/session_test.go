@@ -1,67 +1,20 @@
 package mysql
 
 import (
-	"fmt"
-	"sync"
-	"testing"
+"fmt"
+"sync"
+"testing"
 )
 
 func TestNewSessionVariables(t *testing.T) {
 	sv := NewSessionVariables()
-
-	// Test that session variables are initialized
-	if sv.sessionVars == nil {
-		t.Error("sessionVars map should be initialized")
+	
+	if sv == nil {
+		t.Fatal("NewSessionVariables should not return nil")
 	}
+	
 	if sv.userVars == nil {
-		t.Error("userVars map should be initialized")
-	}
-
-	// Test default session variables
-	expectedDefaults := map[string]interface{}{
-		"autocommit":               1,
-		"sql_mode":                 "",
-		"character_set_client":     "utf8mb4",
-		"character_set_connection": "utf8mb4",
-		"character_set_results":    "utf8mb4",
-		"collation_connection":     "utf8mb4_general_ci",
-		"time_zone":                "SYSTEM",
-		"tx_isolation":             "REPEATABLE-READ",
-		"version_comment":          "Multitenant DB",
-	}
-
-	for key, expected := range expectedDefaults {
-		value, exists := sv.Get(key)
-		if !exists {
-			t.Errorf("Default session variable %s should exist", key)
-		}
-		if value != expected {
-			t.Errorf("Default session variable %s should be %v, got %v", key, expected, value)
-		}
-	}
-}
-
-func TestSessionVariables_Set_Get(t *testing.T) {
-	sv := NewSessionVariables()
-
-	// Test setting and getting session variables
-	sv.Set("test_var", "test_value")
-	value, exists := sv.Get("test_var")
-	if !exists {
-		t.Error("test_var should exist after setting")
-	}
-	if value != "test_value" {
-		t.Errorf("Expected 'test_value', got %v", value)
-	}
-
-	// Test case insensitivity
-	sv.Set("TEST_VAR", "new_value")
-	value, exists = sv.Get("test_var")
-	if !exists {
-		t.Error("test_var should exist (case insensitive)")
-	}
-	if value != "new_value" {
-		t.Errorf("Expected 'new_value', got %v", value)
+		t.Fatal("userVars map should be initialized")
 	}
 }
 
@@ -89,30 +42,6 @@ func TestSessionVariables_SetUser_GetUser(t *testing.T) {
 	}
 }
 
-func TestSessionVariables_Unset(t *testing.T) {
-	sv := NewSessionVariables()
-
-	// Set a session variable then unset it
-	sv.Set("temp_var", "temp_value")
-	_, exists := sv.Get("temp_var")
-	if !exists {
-		t.Error("temp_var should exist after setting")
-	}
-
-	sv.Unset("temp_var")
-	_, exists = sv.Get("temp_var")
-	if exists {
-		t.Error("temp_var should not exist after unsetting")
-	}
-
-	// Test unsetting a default variable
-	sv.Unset("autocommit")
-	_, exists = sv.Get("autocommit")
-	if exists {
-		t.Error("autocommit should not exist after unsetting")
-	}
-}
-
 func TestSessionVariables_UnsetUser(t *testing.T) {
 	sv := NewSessionVariables()
 
@@ -130,35 +59,11 @@ func TestSessionVariables_UnsetUser(t *testing.T) {
 	}
 }
 
-func TestSessionVariables_GetAll(t *testing.T) {
-	sv := NewSessionVariables()
-
-	// Add a custom variable
-	sv.Set("custom_var", "custom_value")
-
-	all := sv.GetAll()
-	
-	// Should contain all default variables plus the custom one
-	if len(all) < 10 { // We have 9 defaults + 1 custom
-		t.Errorf("Expected at least 10 variables, got %d", len(all))
-	}
-
-	// Check that custom variable is included
-	if all["custom_var"] != "custom_value" {
-		t.Error("custom_var should be included in GetAll()")
-	}
-
-	// Check that a default variable is included
-	if all["version_comment"] != "Multitenant DB" {
-		t.Error("version_comment should be included in GetAll()")
-	}
-}
-
 func TestSessionVariables_Concurrency(t *testing.T) {
 	sv := NewSessionVariables()
 	var wg sync.WaitGroup
 	
-	// Test concurrent access
+	// Test concurrent access to user variables
 	for i := 0; i < 100; i++ {
 		wg.Add(1)
 		go func(i int) {
@@ -166,16 +71,8 @@ func TestSessionVariables_Concurrency(t *testing.T) {
 			key := fmt.Sprintf("var%d", i)
 			value := fmt.Sprintf("value%d", i)
 			
-			// Set session variable
-			sv.Set(key, value)
-			
 			// Set user variable
 			sv.SetUser(key, value)
-			
-			// Get session variable
-			if v, exists := sv.Get(key); !exists || v != value {
-				t.Errorf("Concurrent session variable access failed for %s", key)
-			}
 			
 			// Get user variable
 			if v, exists := sv.GetUser(key); !exists || v != value {
