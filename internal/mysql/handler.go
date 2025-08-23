@@ -288,7 +288,7 @@ func StartServer(port int, handler *Handler) error {
 		
 		go func() {
 			defer conn.Close()
-			
+
 			// Get authentication credentials
 			username := "root"
 			password := ""
@@ -296,14 +296,23 @@ func StartServer(port int, handler *Handler) error {
 				username = handler.config.Auth.Username
 				password = handler.config.Auth.Password
 			}
-			
+
 			// Create new MySQL connection with authentication
 			mysqlConn, err := server.NewConn(conn, username, password, handler)
 			if err != nil {
 				handler.logger.Printf("Failed to create MySQL connection: %v", err)
 				return
 			}
-			defer mysqlConn.Close()
+			defer func() {
+				if mysqlConn != nil {
+					defer func() {
+						if r := recover(); r != nil {
+							handler.logger.Printf("Recovered from panic in mysqlConn.Close(): %v", r)
+						}
+					}()
+					mysqlConn.Close()
+				}
+			}()
 			
 			// Get connection ID and set it for this handler instance
 			connID := handler.sessionManager.GetNextConnectionID()
