@@ -4,9 +4,9 @@ import (
 	"net/http"
 	"time"
 
-	"multitenant-db/api"
-	"multitenant-db/logger"
-	"multitenant-db/mysql"
+	"multitenant-db/cmd/multi-tenant-db/api"
+	"multitenant-db/cmd/multi-tenant-db/logger"
+	"multitenant-db/cmd/multi-tenant-db/mysql"
 )
 
 // DatabaseManagerAdapter adapts the mysql Handler's DatabaseManager for the API
