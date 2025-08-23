@@ -10,50 +10,33 @@ import (
 )
 
 func TestSetup(t *testing.T) {
-	// Create a temporary log file for testing
-	tempFile, err := os.CreateTemp("", "test_log_*.log")
-	if err != nil {
-		t.Fatalf("Failed to create temp file: %v", err)
-	}
-	defer os.Remove(tempFile.Name())
-	defer tempFile.Close()
-
-	// Since Setup() creates its own file, we'll test it as-is
-	logger := Setup()
-	
-	if logger == nil {
-		t.Error("Logger should not be nil")
-	}
-
-	// Test that we can write to the logger
-	logger.Println("Test log message")
-
-	// Check that the log file was created
-	if _, err := os.Stat("logs/app.log"); os.IsNotExist(err) {
-		t.Error("Log file should have been created")
-	}
+       os.Setenv("ENV", "")
+       os.Remove("app.log")
+       logger := Setup()
+       if logger == nil {
+	       t.Error("Logger should not be nil")
+       }
+       logger.Println("Test log message")
+       if _, err := os.Stat("app.log"); os.IsNotExist(err) {
+	       t.Error("Log file should have been created")
+       }
 }
 
 func TestSetup_FileCreation(t *testing.T) {
-	// Remove logs directory if it exists
-	os.RemoveAll("logs")
-
-	logger := Setup()
-
-	if logger == nil {
-		t.Error("Logger should not be nil even when directory doesn't exist")
-	}
-
-	// Test that we can write to the logger
-	logger.Println("Test message for file creation")
-
-	// Check that the file was created
-	if _, err := os.Stat("logs/app.log"); os.IsNotExist(err) {
-		t.Error("Log file should have been created")
-	}
+       os.Setenv("ENV", "")
+       os.Remove("app.log")
+       logger := Setup()
+       if logger == nil {
+	       t.Error("Logger should not be nil even when directory doesn't exist")
+       }
+       logger.Println("Test message for file creation")
+       if _, err := os.Stat("app.log"); os.IsNotExist(err) {
+	       t.Error("Log file should have been created")
+       }
 }
 
 func TestSetup_InvalidPath(t *testing.T) {
+	os.Setenv("ENV", "")
 	// Since Setup() uses a fixed path, this test doesn't apply
 	// We'll test the logger functionality instead
 	logger := Setup()
@@ -102,106 +85,75 @@ func TestSetup_LogFormat(t *testing.T) {
 }
 
 func TestSetup_MultipleWrites(t *testing.T) {
-	logger := Setup()
-	
-	// Write multiple log messages
-	messages := []string{
-		"First message",
-		"Second message", 
-		"Third message",
-	}
-	
-	for _, msg := range messages {
-		logger.Println(msg)
-	}
-
-	// Check that the log file exists and can be read
-	content, err := os.ReadFile("logs/app.log")
-	if err != nil {
-		t.Errorf("Should be able to read log file: %v", err)
-		return
-	}
-
-	contentStr := string(content)
-	
-	// Check that all messages are present
-	for _, msg := range messages {
-		if !strings.Contains(contentStr, msg) {
-			t.Errorf("Log file should contain message: %s", msg)
-		}
-	}
+       os.Setenv("ENV", "")
+       os.Remove("app.log")
+       logger := Setup()
+       messages := []string{
+	       "First message",
+	       "Second message",
+	       "Third message",
+       }
+       for _, msg := range messages {
+	       logger.Println(msg)
+       }
+       content, err := os.ReadFile("app.log")
+       if err != nil {
+	       t.Errorf("Should be able to read log file: %v", err)
+	       return
+       }
+       contentStr := string(content)
+       for _, msg := range messages {
+	       if !strings.Contains(contentStr, msg) {
+		       t.Errorf("Log file should contain message: %s", msg)
+	       }
+       }
 }
 
 func TestSetup_DirectoryCreation(t *testing.T) {
-	// Test that the directory is created
-	// Since Setup() uses a fixed path "logs/app.log", we test this scenario
-	err := os.RemoveAll("logs")
-	if err != nil && !os.IsNotExist(err) {
-		t.Errorf("Failed to remove logs directory: %v", err)
-	}
-	
-	// Setup should create the logs directory
-	logger := Setup()
-	
-	if logger == nil {
-		t.Error("Logger should not be nil")
-	}
-	
-	// Check that logs directory was created
-	if _, err := os.Stat("logs"); os.IsNotExist(err) {
-		t.Error("Setup should create logs directory")
-	}
-	
-	// Write a message to ensure the file is created
-	logger.Println("Test directory creation")
-	
-	// Check that log file was created
-	if _, err := os.Stat("logs/app.log"); os.IsNotExist(err) {
-		t.Error("Setup should create log file")
-	}
+       os.Setenv("ENV", "")
+       os.Remove("app.log")
+       logger := Setup()
+       if logger == nil {
+	       t.Error("Logger should not be nil")
+       }
+       logger.Println("Test directory creation")
+       if _, err := os.Stat("app.log"); os.IsNotExist(err) {
+	       t.Error("Setup should create log file")
+       }
 }
 
 func TestSetup_ConcurrentAccess(t *testing.T) {
-	// Test concurrent access to the logger
-	logger := Setup()
-	
-	const numGoroutines = 10
-	const messagesPerGoroutine = 10
-	
-	var wg sync.WaitGroup
-	
-	// Launch concurrent goroutines
-	for i := 0; i < numGoroutines; i++ {
-		wg.Add(1)
-		go func(id int) {
-			defer wg.Done()
-			for j := 0; j < messagesPerGoroutine; j++ {
-				logger.Printf("Goroutine %d, message %d", id, j)
-			}
-		}(i)
-	}
-	
-	wg.Wait()
-	
-	// Read the log file and count messages
-	content, err := os.ReadFile("logs/app.log")
-	if err != nil {
-		t.Errorf("Should be able to read log file: %v", err)
-		return
-	}
-	
-	contentStr := string(content)
-	
-	// Count the number of messages (look for "Goroutine" prefix)
-	messageCount := strings.Count(contentStr, "Goroutine")
-	expectedCount := numGoroutines * messagesPerGoroutine
-	
-	if messageCount != expectedCount {
-		t.Errorf("Expected %d messages, found %d", expectedCount, messageCount)
-	}
+       os.Setenv("ENV", "")
+       os.Remove("app.log")
+       logger := Setup()
+       const numGoroutines = 10
+       const messagesPerGoroutine = 10
+       var wg sync.WaitGroup
+       for i := 0; i < numGoroutines; i++ {
+	       wg.Add(1)
+	       go func(id int) {
+		       defer wg.Done()
+		       for j := 0; j < messagesPerGoroutine; j++ {
+			       logger.Printf("Goroutine %d, message %d", id, j)
+		       }
+	       }(i)
+       }
+       wg.Wait()
+       content, err := os.ReadFile("app.log")
+       if err != nil {
+	       t.Errorf("Should be able to read log file: %v", err)
+	       return
+       }
+       contentStr := string(content)
+       messageCount := strings.Count(contentStr, "Goroutine")
+       expectedCount := numGoroutines * messagesPerGoroutine
+       if messageCount != expectedCount {
+	       t.Errorf("Expected %d messages, found %d", expectedCount, messageCount)
+       }
 }
 
 func TestSetup_EmptyLogFile(t *testing.T) {
+	os.Setenv("ENV", "")
 	// Since Setup() uses a fixed path, we test the functionality as-is
 	logger := Setup()
 	
@@ -214,30 +166,20 @@ func TestSetup_EmptyLogFile(t *testing.T) {
 }
 
 func TestSetup_ExistingFile(t *testing.T) {
-	// Clean up and create initial log content
-	os.Remove("logs/app.log")
-	
-	// Create logs directory if it doesn't exist
-	os.MkdirAll("logs", 0755)
-	
-	// Write some initial content to the log file
-	err := os.WriteFile("logs/app.log", []byte("Initial content\n"), 0644)
+	os.Setenv("ENV", "")
+	os.Remove("app.log")
+	os.Remove("app.log")
+	err := os.WriteFile("app.log", []byte("Initial content\n"), 0644)
 	if err != nil {
 		t.Fatalf("Failed to create initial log file: %v", err)
 	}
-
 	logger := Setup()
 	logger.Println("New log message")
-
-	// Read the file content
-	content, err := os.ReadFile("logs/app.log")
+	content, err := os.ReadFile("app.log")
 	if err != nil {
 		t.Fatalf("Failed to read log file: %v", err)
 	}
-
 	contentStr := string(content)
-	
-	// Should contain both initial content and new message
 	if !strings.Contains(contentStr, "Initial content") {
 		t.Error("Log file should preserve existing content")
 	}
