@@ -1,0 +1,63 @@
+# GitHub Actions workflow for multi-tenant-db using Taskfile
+# This workflow runs on push and pull request events for main and all branches
+
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+    # Skip CI on merge commits to master
+    # Only run if the commit is not a merge commit
+    # This uses a conditional to skip if the commit has more than one parent (i.e., a merge)
+    # See: https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#using-expressions
+    # This will only run CI if the commit is not a merge commit
+    # Note: GitHub Actions does not natively support skipping on merge commits, so we use a job-level if condition below
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  build-test:
+    if: github.event_name != 'push' || github.event.head_commit.parents[1] == null
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: "go.mod"
+
+      - name: Install Task
+        uses: arduino/setup-task@v2
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Run vet
+        run: task vet
+
+      - name: Run unit tests
+        run: task test:unit
+
+      - name: Run integration tests
+        run: task test:integration
+
+      - name: Run coverage
+        run: task coverage
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lcov.info
+          path: lcov.info
+
+      - name: Build binary
+        run: task build
