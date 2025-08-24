@@ -1,0 +1,89 @@
+services:
+  # Main application under test
+  multitenant-db:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: multitenant-db:latest
+    container_name: multitenant-db-test
+    ports:
+      - "3306:3306"
+      - "8080:8080"
+    environment:
+      - AUTH_USERNAME=testuser
+      - AUTH_PASSWORD=testpass
+      - LOG_LEVEL=debug
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - test-network
+
+  # MySQL client for protocol testing
+  mysql-client:
+    image: mysql:8.0
+    container_name: mysql-client-test
+    environment:
+      - MYSQL_ALLOW_EMPTY_PASSWORD=yes
+    command: sleep infinity
+    depends_on:
+      multitenant-db:
+        condition: service_healthy
+    networks:
+      - test-network
+
+  # Test runner container with caching
+  test-runner:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    image: test-runner:latest
+    container_name: test-runner
+    volumes:
+      - .:/app
+      - /var/run/docker.sock:/var/run/docker.sock
+      - go-mod-cache:/go-mod-cache
+      - go-build-cache:/go-cache
+    working_dir: /app
+    environment:
+      - CGO_ENABLED=1
+      - GOCACHE=/go-cache
+      - GOMODCACHE=/go-mod-cache
+      - MULTITENANT_DB_HOST=multitenant-db
+      - MULTITENANT_DB_PORT=3306
+      - MULTITENANT_DB_HTTP_PORT=8080
+      - MYSQL_CLIENT_HOST=mysql-client
+    depends_on:
+      multitenant-db:
+        condition: service_healthy
+    networks:
+      - test-network
+
+  # Database inspector for debugging
+  adminer:
+    image: adminer
+    container_name: db-inspector
+    ports:
+      - "8081:8080"
+    environment:
+      - ADMINER_DEFAULT_SERVER=multitenant-db:3306
+    depends_on:
+      multitenant-db:
+        condition: service_healthy
+    networks:
+      - test-network
+    profiles:
+      - debug
+
+networks:
+  test-network:
+    driver: bridge
+
+volumes:
+  go-mod-cache:
+    driver: local
+  go-build-cache:
+    driver: local

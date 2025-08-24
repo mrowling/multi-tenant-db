@@ -67,6 +67,11 @@ tasks:
       - echo "Running unit tests with coverage..."
       - go test -short -coverprofile=coverage.out ./...
       - echo "Converting coverage to lcov format..."
+      - |
+        if ! command -v gcov2lcov &> /dev/null; then
+          echo "Installing gcov2lcov..."
+          go install github.com/jandelgado/gcov2lcov@latest
+        fi
       - gcov2lcov -infile=coverage.out -outfile=lcov.info
       - echo "Coverage summary:"
       - go tool cover -func=coverage.out | grep total
@@ -162,4 +167,56 @@ tasks:
     cmds:
       - go install github.com/jandelgado/gcov2lcov@latest
       - go install github.com/swaggo/swag/cmd/swag@latest
+      - go install gotest.tools/gotestsum@latest
+      - go install github.com/axw/gocov/gocov@latest  
+      - go install github.com/matm/gocov-html@latest
       - pip install pre-commit || echo "Install pre-commit"
+
+  # Docker-based testing
+  test:docker:
+    desc: Run comprehensive Docker-based test suite
+    cmds:
+      - ./scripts/docker-test.sh all
+
+  test:docker:unit:
+    desc: Run unit tests in Docker environment
+    cmds:
+      - ./scripts/docker-test.sh unit
+
+  test:docker:integration:
+    desc: Run integration tests with Docker Compose
+    cmds:
+      - ./scripts/docker-test.sh integration
+
+  test:docker:coverage:
+    desc: Generate coverage report in Docker environment
+    cmds:
+      - ./scripts/docker-test.sh coverage
+
+  test:docker:debug:
+    desc: Start Docker services for manual testing and debugging
+    cmds:
+      - ./scripts/docker-test.sh debug false
+
+  test:docker:clean:
+    desc: Clean up Docker test resources
+    cmds:
+      - docker-compose -f docker-compose.test.yml -p multitenant-db-test down -v --remove-orphans
+      - docker system prune -f --volumes
+
+  test:docker:build:
+    desc: Pre-build Docker images for faster test runs
+    cmds:
+      - echo "🔧 Building Docker images for testing..."
+      - export DOCKER_BUILDKIT=1
+      - export COMPOSE_DOCKER_CLI_BUILD=1
+      - docker-compose -f docker-compose.test.yml build --parallel
+      - echo "✅ Docker images built successfully"
+      - echo "Now you can run fast tests with task test:docker:integration"
+
+  test:docker:rebuild:
+    desc: Force rebuild of Docker images
+    cmds:
+      - echo "🔄 Force rebuilding Docker images..."
+      - docker-compose -f docker-compose.test.yml build --no-cache --parallel
+      - echo "✅ Docker images rebuilt from scratch"

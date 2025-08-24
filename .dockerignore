@@ -1,0 +1,43 @@
+# Build artifacts
+bin/
+*.log
+coverage.out
+coverage.html
+lcov.info
+integration-server.pid
+
+# Test artifacts
+logs/
+test/integration/logs/
+test/docker/logs/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Documentation (not needed for build)
+*.md
+docs/
+
+# CI/CD files
+.github/
+
+# Docker files (except the one being built)
+docker-compose*.yml
+Dockerfile*
+!Dockerfile
+
+# Temporary files
+tmp/
+temp/
