@@ -1,0 +1,33 @@
+# GitHub Actions workflow for automated releases using GitHub Releases
+# This workflow builds the binary and creates a release when a new tag is pushed
+
+name: Release
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: "go.mod"
+
+      - name: Install Task
+        uses: arduino/setup-task@v2
+
+      - name: Build binary
+        run: task build
+
+      - name: Upload Release Asset
+        uses: softprops/action-gh-release@v2
+        with:
+          files: bin/multitenant-db
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
