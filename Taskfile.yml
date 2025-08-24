@@ -13,11 +13,6 @@ tasks:
       - task: test:unit
       - task: test:integration
 
-  docker:build:
-    desc: Build the Docker image for the application
-    cmds:
-      - docker build -t {{.APP_NAME}}:latest .
-
   test:unit:
     desc: Run unit tests only
     cmds:
@@ -159,6 +154,18 @@ tasks:
     desc: Generate and validate Swagger (OpenAPI) docs using swaggo/swag
     cmds:
       - swag init -g cmd/multi-tenant-db/main.go -o ./api/swagger
+
+  # Docker tasks
+  docker:build:
+    desc: Build the Docker image for the application
+    cmds:
+      - docker build -t {{.APP_NAME}}:latest .
+
+  docker:run:
+    desc: Run the Docker container
+    deps: [docker:build]
+    cmds:
+      - docker run --rm -p 3306:3306 -p 8080:8080 {{.APP_NAME}}:latest
 
   install-dev-tools:
     desc: Install all required development tools
