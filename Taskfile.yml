@@ -13,6 +13,11 @@ tasks:
       - task: test:unit
       - task: test:integration
 
+  docker:build:
+    desc: Build the Docker image for the application
+    cmds:
+      - docker build -t {{.APP_NAME}}:latest .
+
   test:unit:
     desc: Run unit tests only
     cmds:
