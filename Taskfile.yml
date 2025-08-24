@@ -21,11 +21,6 @@ tasks:
   test:integration:
     desc: Run integration tests
     cmds:
-      - go test -tags=integration ./test/integration/...
-
-  test:integration:full:
-    desc: Run integration tests with server startup/shutdown
-    cmds:
       - echo "Starting server for integration tests..."
       - task: build
       - ./bin/multitenant-db &
@@ -144,12 +139,6 @@ tasks:
     cmds:
       - go vet ./...
 
-  # Tools
-  install-tools:
-    desc: Install required development tools
-    cmds:
-      - go install github.com/jandelgado/gcov2lcov@latest
-
   swagger:
     desc: Generate and validate Swagger (OpenAPI) docs using swaggo/swag
     cmds:
@@ -163,7 +152,8 @@ tasks:
 
   docker:run:
     desc: Run the Docker container
-    deps: [docker:build]
+    deps:
+      - docker:build
     cmds:
       - docker run --rm -p 3306:3306 -p 8080:8080 {{.APP_NAME}}:latest
 

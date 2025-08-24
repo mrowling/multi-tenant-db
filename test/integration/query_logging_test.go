@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -52,12 +53,26 @@ type StatsResponse struct {
 	Timestamp time.Time              `json:"timestamp"`
 }
 
-const (
-	mysqlHost = "127.0.0.1"
-	mysqlPort = "3306"
+func getConnectionConfig() (mysqlHost, mysqlPort, mysqlUser, apiHost string) {
+	mysqlHost = os.Getenv("MYSQL_HOST")
+	if mysqlHost == "" {
+		mysqlHost = "127.0.0.1"
+	}
+	
+	mysqlPort = os.Getenv("MYSQL_PORT")
+	if mysqlPort == "" {
+		mysqlPort = "3306"
+	}
+	
 	mysqlUser = "root"
-	apiHost   = "http://localhost:8080"
-)
+	
+	apiHost = os.Getenv("INTEGRATION_SERVER_URL")
+	if apiHost == "" {
+		apiHost = "http://localhost:8080"
+	}
+	
+	return
+}
 
 func TestQueryLoggingIntegration(t *testing.T) {
 	// Skip if not in integration test mode
@@ -303,6 +318,7 @@ func executeQueriesForTenant(t *testing.T, tenantID string, queries []string) er
 
 // Helper function to execute a single query for a specific tenant
 func executeSingleQueryForTenant(t *testing.T, tenantID string, query string) error {
+	mysqlHost, mysqlPort, mysqlUser, _ := getConnectionConfig()
 	dsn := fmt.Sprintf("%s@tcp(%s:%s)/", mysqlUser, mysqlHost, mysqlPort)
 	db, err := sql.Open("mysql", dsn)
 	if err != nil {
@@ -324,6 +340,7 @@ func executeSingleQueryForTenant(t *testing.T, tenantID string, query string) er
 
 // Helper function to get the list of tenants with query logs
 func getQueryLogTenants() ([]string, error) {
+	_, _, _, apiHost := getConnectionConfig()
 	resp, err := http.Get(fmt.Sprintf("%s/api/query-logs", apiHost))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get tenants: %v", err)
@@ -345,6 +362,7 @@ func getQueryLogTenants() ([]string, error) {
 
 // Helper function to get query logs for a tenant
 func getQueryLogs(tenantID string, pageSize, page int) (*QueryLogResponse, error) {
+	_, _, _, apiHost := getConnectionConfig()
 	url := fmt.Sprintf("%s/api/query-logs/%s?page_size=%d&page=%d", apiHost, tenantID, pageSize, page)
 	resp, err := http.Get(url)
 	if err != nil {
@@ -367,6 +385,7 @@ func getQueryLogs(tenantID string, pageSize, page int) (*QueryLogResponse, error
 
 // Helper function to get query statistics for a tenant
 func getQueryLogStats(tenantID string) (*StatsResponse, error) {
+	_, _, _, apiHost := getConnectionConfig()
 	url := fmt.Sprintf("%s/api/query-logs/%s/stats", apiHost, tenantID)
 	resp, err := http.Get(url)
 	if err != nil {
@@ -530,6 +549,7 @@ func TestNumericTenantIDIntegration(t *testing.T) {
 // executeQueriesForNumericTenant executes queries for a numeric tenant ID
 func executeQueriesForNumericTenant(t *testing.T, tenantID, setCmd string, queries []string) error {
 	// Create MySQL connection
+	mysqlHost, mysqlPort, mysqlUser, _ := getConnectionConfig()
 	dsn := fmt.Sprintf("%s@tcp(%s:%s)/", mysqlUser, mysqlHost, mysqlPort)
 	db, err := sql.Open("mysql", dsn)
 	if err != nil {
