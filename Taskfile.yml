@@ -162,6 +162,4 @@ tasks:
     cmds:
       - go install github.com/jandelgado/gcov2lcov@latest
       - go install github.com/swaggo/swag/cmd/swag@latest
-      - go install github.com/pre-commit/pre-commit@latest
-      - go install github.com/mikefarah/yq/v4@latest
-      - sudo apt-get install -y jq || brew install jq || true
+      - pip install pre-commit || echo "Install pre-commit"
