@@ -1,33 +1,11 @@
 # Multitenant DB - MySQL-Compatible Multi-Tenant Database Server
 
-A Go application that implements the MySQL wire protocol with SQLite3 backends, providing complete database isolation per tenant using `idx` values. Each tenant gets their own isolated# Run tests with coverage
-task coverage
-```
+A Go application that implements the MySQL wire protocol with SQLite3 backends, providing complete database isolation per tenant using `idx` values. Each tenant gets their own isolated database while maintaining MySQL protocol compatibility.
 
 ## 🧰 Development Tasks
 
 The project uses [Task](https://taskfile.dev/) for automation. Available tasks:
 
-```bash
-# Build and run
-task build          # Build the application
-task run            # Run the server
-task dev            # Run in development mode with auto-reload
-
-# Testing
-task test:unit      # Run unit tests only
-task test:integration # Run integration tests only  
-task test:all       # Run all tests
-task coverage       # Generate test coverage report
-
-# Utilities
-task clean          # Clean build artifacts
-task fmt            # Format code
-task vet            # Run go vet
-task tidy           # Tidy go modules
-```
-
-## 🛠️ Extending the Serverte database while maintaining MySQL protocol compatibility.
 
 ## 🌟 Key Features
 
@@ -36,72 +14,51 @@ task tidy           # Tidy go modules
 - **Dynamic Database Creation**: Databases are created on-demand when accessed
 - **Session-Aware Routing**: Queries are automatically routed to the correct tenant database
 - **RESTful Database Management**: Create, list, and delete tenant databases via HTTP API
+- **Query Auditing**: Query and review all queries executed per tenant via logging or API
 
 ### Protocol Support
 - **MySQL Wire Protocol** (Port 3306) - Compatible with all MySQL clients
 - **HTTP REST API** (Port 8080) - Database management and monitoring
-- **Session Variables**: Support for both user (`@var`) and session (`@@var`) variables
+- **Session Variables**: Support for session (`@var`) variables
 
-## 🏗️ Architecture
-
-```
-┌─────────────────┐    ┌──────────────────────┐    ┌─────────────────┐
-│   MySQL Client  │ ── │  Multitenant Server  │ ── │ SQLite DB (idx1)│
-│                 │    │                      │    ├─────────────────┤
-│ SET @idx='prod' │    │   Session Manager    │    │ SQLite DB (idx2)│
-│ SELECT * FROM   │    │   Database Manager   │    ├─────────────────┤
-│ users;          │    │   Query Router       │    │ SQLite DB (def) │
-└─────────────────┘    └──────────────────────┘    └─────────────────┘
-```
 
 ## 🚀 Quick Start
 
 ### 1. Build and Run
 ```bash
-# Build the application
 task build
-
-# Run the server
 task run
 ```
 
 ### 2. Connect with MySQL Client
 ```bash
-# Connect to the server
 mysql -h 127.0.0.1 -P 3306 -u root --protocol=TCP
 ```
 
 ### 3. Set Your Tenant ID and Query
 ```sql
--- Set your tenant identifier
-mysql> SET @idx = 'customer123';
-
--- Now all queries go to customer123's isolated database
-mysql> SHOW TABLES;
-mysql> SELECT * FROM users;
-mysql> INSERT INTO users (name, email) VALUES ('John', 'john@customer123.com');
+SET @idx = 'customer123';
+SHOW TABLES;
+SELECT * FROM users;
+INSERT INTO users (name, email) VALUES ('John', 'john@customer123.com');
 ```
 
 ## 🏢 Multi-Tenant Usage
 
 ### Setting Tenant Context
 ```sql
--- Using user variables (recommended)
 SET @idx = 'tenant_alpha';
-SELECT * FROM users;  -- Queries tenant_alpha's database
+SELECT * FROM users;
 
--- Using session variables
 SET @@idx = 'tenant_beta';
-SELECT * FROM products;  -- Queries tenant_beta's database
+SELECT * FROM products;
 
--- Switch tenants dynamically
 SET @idx = 'tenant_gamma';
 INSERT INTO users (name, email) VALUES ('Alice', 'alice@gamma.com');
 ```
 
 ### Viewing Multi-Tenant Databases
 ```sql
--- Show all tenant databases
 SHOW DATABASES;
 ```
 
@@ -119,38 +76,6 @@ Output:
 | multitenant_db_idx_dev      |  ← Development tenant
 | multitenant_db_idx_test123  |  ← Test tenant
 +-----------------------------+
-```
-
-## 🔌 HTTP API for Database Management
-
-### List All Tenant Databases
-```bash
-curl http://localhost:8080/api/databases | jq
-```
-
-Response:
-```json
-{
-  "databases": [
-    {"name": "multitenant_db", "idx": "default"},
-    {"name": "multitenant_db_idx_prod", "idx": "prod"},
-    {"name": "multitenant_db_idx_dev", "idx": "dev"}
-  ],
-  "status": "ok",
-  "timestamp": "2025-08-23T01:30:00Z"
-}
-```
-
-### Create a New Tenant Database
-```bash
-curl -X POST http://localhost:8080/api/databases/create \
-  -H "Content-Type: application/json" \
-  -d '{"idx": "new_customer"}' | jq
-```
-
-### Delete a Tenant Database
-```bash
-curl -X DELETE "http://localhost:8080/api/databases/delete?idx=old_tenant" | jq
 ```
 
 ## 📊 Sample Data Structure
@@ -178,52 +103,24 @@ Each tenant database is initialized with sample tables:
 - **Variable Management**: `SET @var = value`, `SELECT @var`, `SET @@var = value`
 - **Standard SQL**: All SQLite-compatible SQL commands
 
-## 🌐 HTTP API Endpoints
-
-### Core Endpoints
-- `GET /` - Welcome message
-- `GET /health` - Health check
-- `GET /api/info` - API information and connection details
-
-### Database Management
-- `/api/databases` - Database management endpoint:
-  - `GET`    - List all tenant databases
-  - `POST`   - Create a new tenant database
-  - `DELETE` - Delete a tenant database (use `?idx=<tenant_id>` query parameter)
-
 ## 💾 Session and Variable Management
 
-### User Variables (`@var`)
+### Session Variables (`@var`)
 ```sql
-SET @idx = 'my_tenant';           -- Set tenant context
-SET @user_preference = 'dark';    -- Store user preferences
-SELECT @idx, @user_preference;    -- Retrieve variables
+SET @idx = 'my_tenant';
+SET @user_preference = 'dark';
+SELECT @idx, @user_preference;
 ```
 
-### Session Variables (`@@var`)
-```sql
-SET @@idx = 'my_tenant';          -- Set tenant context (session scope)
-SET @@custom_setting = 'value';   -- Custom session settings
-SHOW VARIABLES;                   -- Show all session variables
-```
 
 ### Variable Unset
 ```sql
-SET @idx = NULL;                  -- Unset user variable
-SET @@custom_setting = NULL;      -- Unset session variable
+SET @idx = NULL;
 ```
 
 ## 🔒 Security Considerations
 
 ⚠️ **Development/Demo Server**: This server is designed for development and demonstration purposes.
-
-For production use, implement:
-- **Authentication**: User management and password validation
-- **Authorization**: Tenant access controls and permissions
-- **Input Validation**: SQL injection prevention
-- **Network Security**: TLS/SSL encryption, firewall rules
-- **Rate Limiting**: Connection and query rate limits
-- **Audit Logging**: Query and access logging
 
 ## 🏗️ Architecture Details
 
@@ -243,69 +140,35 @@ For production use, implement:
 - **Per-Tenant Isolation**: Complete data separation between tenants
 - **Auto-Initialization**: Sample data created for each new tenant
 
-## � Project Structure
+## 🗂️ Project Structure
 
 Following the [Standard Go Project Layout](https://github.com/golang-standards/project-layout):
 
-```
-.
-├── cmd/multi-tenant-db/        # Main application
-│   ├── main.go                # Application entry point
-│   └── main_test.go           # Main application tests
-├── internal/                   # Private application code
-│   ├── api/                   # HTTP API handlers
-│   ├── logger/                # Logging functionality  
-│   └── mysql/                 # MySQL protocol implementation
-├── test/integration/           # Integration tests
-│   └── integration_test.go    # Full system integration tests
-├── Taskfile.yml               # Task automation
-└── README.md
-```
 
 ### Testing Structure
 
 The project uses build tags to separate unit and integration tests:
 
 ```bash
-# Run unit tests only (default)
-task test:unit
-
-# Run integration tests only
-task test:integration  
-
-# Run all tests
-task test:all
-
-# Run tests with coverage
-task coverage
+task | grep test
+* coverage:                      Run unit tests with coverage and generate lcov.info
+* coverage-html:                 Run tests with coverage and open HTML report
+* test:                          Run all tests (unit + integration)
+* test-short:                    Run unit tests only (legacy alias)
+* coverage:integration:          Run integration tests with coverage
+* test:all:                      Run all tests (unit + integration)
+* test:docker:                   Run comprehensive Docker-based test suite
+* test:docker:build:             Pre-build Docker images for faster test runs
+* test:docker:clean:             Clean up Docker test resources
+* test:docker:coverage:          Generate coverage report in Docker environment
+* test:docker:debug:             Start Docker services for manual testing and debugging
+* test:docker:integration:       Run integration tests with Docker Compose
+* test:docker:rebuild:           Force rebuild of Docker images
+* test:docker:unit:              Run unit tests in Docker environment
+* test:integration:              Run integration tests
+* test:unit:                     Run unit tests only
 ```
 
-## �🛠️ Extending the Server
-
-### Adding Custom Tables
-```go
-// In database.go - initSampleData()
-_, err = db.Exec(`
-    CREATE TABLE custom_table (
-        id INTEGER PRIMARY KEY,
-        tenant_data TEXT
-    )
-`)
-```
-
-### Adding New MySQL Commands
-```go
-// In handlers.go - add new handler method
-func (qh *QueryHandlers) HandleCustomCommand(query string) (*mysql.Result, error) {
-    // Implementation
-}
-```
-
-### Custom Business Logic
-```go
-// Implement tenant-specific business rules in query handlers
-// Add custom validation, data transformation, etc.
-```
 
 ## 📝 Logging
 
@@ -315,10 +178,6 @@ Application logs include tenant context:
 [MULTI-TENANT-DB] [idx=prod] Database created for idx: prod
 [MULTI-TENANT-DB] [idx=dev] Set user variable: @idx = dev
 ```
-
-Logs are written to:
-- Console output (with colors and formatting)
-- `logs/app.log` file (persistent logging)
 
 ## 🎯 Use Cases
 
@@ -345,10 +204,13 @@ The OpenAPI spec and Swagger files are located in:
 - `api/swagger/swagger.json` (OpenAPI JSON)
 - `api/swagger/swagger.yaml` (OpenAPI YAML)
 
-To update the docs after editing API comments, run:
+To update the docs after editing API comments, use:
 
 ```bash
-swag init -g cmd/multi-tenant-db/main.go -o ./api/swagger
+task swagger
 ```
 
 > **Note:** Swagger UI is only available in development mode (when `ENV=development` or unset).
+MIT License - see [LICENSE](LICENSE) file for details.
+
+The software is provided "AS IS", without warranty of any kind. No support obligations.
